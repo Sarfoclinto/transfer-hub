@@ -11,14 +11,14 @@ each one a testable end-to-end slice rather than one big-bang build.
 
 ## Status
 
-**Milestone 1 — Foundations**, slice 1 of 4 (this commit):
-repo scaffold, folder structure, and a basic layout shell. No backend
-wiring yet — every API route and `lib/` file is a documented stub.
-
-Remaining Milestone 1 slices:
-- Slice 2: Supabase schema migrations + RLS policies + generated types
-- Slice 3: Supabase Auth wiring (email/password + Google OAuth) + middleware
-- Slice 4: R2 bucket config + presigned URL client setup
+**Milestone 1 — Foundations**
+- ✅ Slice 1: repo scaffold, folder structure, basic layout shell
+- ✅ Slice 2: Supabase schema migrations + RLS policies (this branch) —
+  see `supabase/migrations/README.md` for how to apply them to your own
+  project. Real generated types land once you've run them (placeholder
+  `Database` type in `types/database.ts` until then).
+- ⬜ Slice 3: Supabase Auth wiring (email/password + Google OAuth) + proxy.ts
+- ⬜ Slice 4: R2 bucket config + presigned URL client setup
 
 ## Stack
 

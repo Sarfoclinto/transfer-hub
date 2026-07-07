@@ -1,5 +1,11 @@
-// TODO (Milestone 1, slice 2): generated via `supabase gen types typescript`
-// once the schema migrations are applied to a real Supabase project.
-// Do not hand-edit this file once generated — regenerate after every
-// migration instead.
-export {};
+// Generated types -- do not hand-edit. Regenerate after every migration:
+//
+//   npx supabase login
+//   npx supabase link --project-ref <your-project-ref>   (find this in your
+//     Supabase project URL: https://supabase.com/dashboard/project/<ref>)
+//   npx supabase gen types typescript --linked > types/database.ts
+//
+// Until you've run this against your own Supabase project, this file is a
+// placeholder so imports elsewhere in the codebase don't break.
+export type Database = Record<string, unknown>;
+
