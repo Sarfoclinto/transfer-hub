@@ -21,13 +21,16 @@ each one a testable end-to-end slice rather than one big-bang build.
   OAuth, three-layer auth model (`proxy.ts` refresh/UX-redirect →
   Server Component `getClaims()` verification → RLS as the last line of
   defense). See `app/(auth)/login` and `lib/supabase/`.
-- ⬜ Slice 4: R2 bucket config + presigned URL client setup
+- ✅ Slice 4: R2 bucket config + presigned URL client (this branch) —
+  see `lib/storage/r2-client.ts` and `lib/storage/CORS_SETUP.md`. A
+  temporary `GET /api/dev-r2-test` route (non-production only) exists to
+  sanity-check the connection before Milestone 2 builds the real flow —
+  delete it once that milestone lands.
 
-Note: slices 2 and 3 both touch `README.md` and `types/database.ts`
-independently since they branched from the same `main` commit. Expect a
-small, easy conflict in those two files when merging whichever PR lands
-second — not a sign anything's wrong, just a consequence of parallel
-branches touching shared docs/placeholder files.
+Note: slices 2, 3, and 4 all branched from the same `main` commit, so any
+of them touching shared files (`README.md`, `.env.local.example`,
+`package.json`) will produce small, expected conflicts when merged in
+sequence -- not a sign of a mistake.
 
 ## Stack
 
