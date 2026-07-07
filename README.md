@@ -17,8 +17,17 @@ each one a testable end-to-end slice rather than one big-bang build.
   see `supabase/migrations/README.md` for how to apply them to your own
   project. Real generated types land once you've run them (placeholder
   `Database` type in `types/database.ts` until then).
-- ⬜ Slice 3: Supabase Auth wiring (email/password + Google OAuth) + proxy.ts
+- ✅ Slice 3: Supabase Auth wiring (this branch) — email/password + Google
+  OAuth, three-layer auth model (`proxy.ts` refresh/UX-redirect →
+  Server Component `getClaims()` verification → RLS as the last line of
+  defense). See `app/(auth)/login` and `lib/supabase/`.
 - ⬜ Slice 4: R2 bucket config + presigned URL client setup
+
+Note: slices 2 and 3 both touch `README.md` and `types/database.ts`
+independently since they branched from the same `main` commit. Expect a
+small, easy conflict in those two files when merging whichever PR lands
+second — not a sign anything's wrong, just a consequence of parallel
+branches touching shared docs/placeholder files.
 
 ## Stack
 
