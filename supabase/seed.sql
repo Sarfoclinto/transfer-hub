@@ -1,0 +1,2 @@
+-- TODO (Milestone 1, slice 2): local dev seed data (a sample session + items)
+-- for testing the dashboard/session views without needing a real upload.

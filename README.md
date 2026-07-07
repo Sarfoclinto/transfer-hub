@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Transfer Hub
 
-## Getting Started
+A frictionless cross-device clipboard + file transfer hub. Upload from one
+device, open on any other, via a link or QR code — no accounts, messaging
+apps, or USB drives required.
 
-First, run the development server:
+This repo follows a design doc worked out in five phases before any code was
+written: schema, storage/upload flow, auth model, MVP scope, and this
+folder/roadmap structure. Implementation is happening milestone by milestone,
+each one a testable end-to-end slice rather than one big-bang build.
+
+## Status
+
+**Milestone 1 — Foundations**, slice 1 of 4 (this commit):
+repo scaffold, folder structure, and a basic layout shell. No backend
+wiring yet — every API route and `lib/` file is a documented stub.
+
+Remaining Milestone 1 slices:
+- Slice 2: Supabase schema migrations + RLS policies + generated types
+- Slice 3: Supabase Auth wiring (email/password + Google OAuth) + middleware
+- Slice 4: R2 bucket config + presigned URL client setup
+
+## Stack
+
+- Next.js (App Router) + TypeScript + Tailwind
+- shadcn/ui (set up manually — see note below)
+- Supabase (Postgres + Auth + RLS)
+- Cloudflare R2 (S3-compatible object storage, zero egress fees)
+
+### Why shadcn/ui is set up by hand
+
+`npx shadcn add <component>` fetches from `ui.shadcn.com`. If that domain
+isn't reachable from wherever you're running this, add components manually
+using the `components.json` config already in this repo (style: `new-york`,
+base color: `neutral`) — copy the component source from shadcn's docs into
+`components/ui/`. `button`, `card`, `input`, and `label` are already in place.
+If you have network access to `ui.shadcn.com`, the CLI will work normally
+going forward.
+
+## Getting started
 
 ```bash
+npm install
+cp .env.local.example .env.local   # fill in values as each slice adds them
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Nothing will actually work end-to-end until slices 2–4 are done — right now
+this just proves the app boots and the layout shell renders.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Folder structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See `.env.local.example` for what accounts to create and when. Broadly:
 
-## Learn More
+- `app/(marketing)` — public landing page, no auth-aware layout
+- `app/(app)` — dashboard + session view, shares the app shell/nav
+- `app/api` — route handlers, currently stubs with TODOs pointing at the
+  milestone that implements them
+- `lib/supabase` — three separate clients (browser, server, service-role).
+  `service-role.ts` is isolated deliberately — it's the only client that
+  bypasses Row Level Security, used solely for the guest owner-token write
+  path. Don't import it for convenience elsewhere.
+- `lib/storage` — R2 client + MIME policy enforcement
+- `lib/auth` — guest owner-token generation/verification
+- `supabase/migrations` — SQL migrations, one per schema change
 
-To learn more about Next.js, take a look at the following resources:
+## Design doc summary
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Schema**: `sessions` → `items` (one row per session, many items — the
+  "mixed upload" case), guest ownership via a hashed owner-token rather than
+  Supabase anonymous auth, an explicit `status` state machine
+  (`pending → scanning → ready → rejected`) enforced at the RLS level.
+- **Storage**: uploads go client → R2 directly via presigned URLs, never
+  through the Next.js server. Virus scanning is deferred post-MVP; guests are
+  restricted from executable file types as the interim mitigation.
+- **Auth**: Supabase RLS for the authenticated path; guests are verified via
+  a token-in-header pattern with a service-role bypass for that one verified
+  write, since Postgres has no native concept of "bearer token owns this row."
+- **MVP**: full upload/download/share loop, password-protected + one-time
+  links, dashboard with search/filter — versioning, tags, folder uploads,
+  and virus scanning explicitly deferred.
