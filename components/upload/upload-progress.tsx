@@ -1,3 +1,10 @@
-// TODO (Milestone 2): per-file progress bar driven by XHR/fetch upload
-// progress events during the direct-to-R2 PUT.
-export {};
+export function UploadProgress({ percent }: { percent: number }) {
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div
+        className="h-full rounded-full bg-accent transition-all duration-150"
+        style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+      />
+    </div>
+  );
+}

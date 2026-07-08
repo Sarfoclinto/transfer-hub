@@ -9,7 +9,7 @@ import { z } from "zod";
 // never trusting a client-supplied flag for "am I a guest."
 export const createSessionSchema = z.object({
   title: z.string().trim().max(200).optional(),
-  visibility: z.enum(["private", "unlisted", "public"]).default("private"),
+  visibility: z.enum(["private", "unlisted", "public"]).optional(),
   expiresInDays: z.number().int().min(1).max(90).optional(),
 });
 
@@ -29,4 +29,3 @@ export const confirmUploadSchema = z.object({
 });
 
 export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;
-
