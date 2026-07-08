@@ -29,3 +29,19 @@ export const confirmUploadSchema = z.object({
 });
 
 export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;
+
+// Text items skip the upload/confirm cycle entirely (Phase 2) -- they go
+// straight into text_content, no R2 involved. Capped at ~5MB of text,
+// generous for code/notes/config pastes without being unbounded; tune
+// later if a real use case needs more.
+export const createTextItemSchema = z.object({
+  session_id: z.string().uuid(),
+  content: z
+    .string()
+    .min(1)
+    .max(5 * 1024 * 1024),
+  language: z.string().trim().max(50).optional(),
+  title: z.string().trim().max(255).optional(),
+});
+
+export type CreateTextItemInput = z.infer<typeof createTextItemSchema>;

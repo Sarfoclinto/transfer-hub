@@ -12,6 +12,7 @@ each one a testable end-to-end slice rather than one big-bang build.
 ## Status
 
 **Milestone 1 — Foundations**
+
 - ✅ Slice 1: repo scaffold, folder structure, basic layout shell
 - ✅ Slice 2: Supabase schema migrations + RLS policies (this branch) —
   see `supabase/migrations/README.md` for how to apply them to your own
@@ -37,6 +38,7 @@ been tested manually and confirmed working, including Google OAuth. R2
 (slice 4) is built but not yet tested end-to-end.
 
 **Milestone 2 — single-file guest upload/download, end-to-end**
+
 - ✅ Slice 1 (this branch): session creation —
   `lib/auth/owner-token.ts` (guest ownership token, hash, constant-time
   verify) + `POST /api/sessions/create` (guest and authenticated paths,
@@ -45,12 +47,12 @@ been tested manually and confirmed working, including Google OAuth. R2
   hand-authored one matching the migrations -- the placeholder didn't
   typecheck against actual `.from("sessions")` queries.
 - ✅ Slice 2 (this branch): MIME/extension policy (`lib/storage/mime-policy.ts`)
-  + `POST /api/items/request-upload`. Session-ownership check (guest token
-  vs authenticated owner) uses the service-role client to read the
-  session row -- a guest's private session fails every RLS SELECT policy
-  by design, so there's no anon-key-native way to check "does this caller
-  hold the right token." Applied the insert lesson from slice 1's fix
-  from the start here: no `.select()` chained on the items insert.
+  - `POST /api/items/request-upload`. Session-ownership check (guest token
+    vs authenticated owner) uses the service-role client to read the
+    session row -- a guest's private session fails every RLS SELECT policy
+    by design, so there's no anon-key-native way to check "does this caller
+    hold the right token." Applied the insert lesson from slice 1's fix
+    from the start here: no `.select()` chained on the items insert.
 - ✅ Slice 3 (this branch): `POST /api/items/confirm-upload` (HEAD-verifies
   the object actually landed in R2, never trusts the client's claimed
   size) + `GET /api/items/[id]/download` (visibility checks, the atomic
@@ -78,7 +80,7 @@ been tested manually and confirmed working, including Google OAuth. R2
   workflow this milestone exists to prove. Guests now default to
   `unlisted`; `private` is still available as an explicit opt-in.
 
-  **Known gap, deferred deliberately**: a guest's own *private* session
+  **Known gap, deferred deliberately**: a guest's own _private_ session
   (the opt-in case) can't be viewed even from the same device yet, since
   that would need a client-side fetch reading the localStorage token --
   out of scope for "the common unlisted case," which is what this
@@ -86,6 +88,20 @@ been tested manually and confirmed working, including Google OAuth. R2
 
 **Milestone 2 is complete** -- the core loop (upload from one device, open
 the link on another, download) works end to end.
+
+**Milestone 3 — text items + mixed sessions**
+
+- ✅ Slice 1 (this branch): `POST /api/items/create-text` -- text items
+  skip the upload/confirm cycle entirely (no R2 involved), going straight
+  to `status: 'ready'` since the content itself is the payload. Ownership
+  check reuses the same service-role-read-then-verify pattern as file
+  uploads, and the insert avoids `.select()` for the same reason as
+  before (guest sessions fail RLS SELECT by design).
+- ⬜ Slice 2: mixed-session frontend (add multiple items, text and/or
+  files, to one session before sharing the link)
+- ⬜ Slice 3: preview components (Markdown render, syntax-highlighted
+  code) wired into the session view page
+- ⬜ Slice 4: copy-to-clipboard + text editing
 
 ## Stack
 
