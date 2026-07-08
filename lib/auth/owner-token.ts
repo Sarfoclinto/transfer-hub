@@ -25,3 +25,21 @@ export function verifyOwnerToken(token: string, storedHash: string): boolean {
   if (incomingHash.length !== expectedHash.length) return false;
   return timingSafeEqual(incomingHash, expectedHash);
 }
+
+// Shared write/manage-access check used by request-upload, confirm-upload,
+// and the owner-only parts of download (Phase 3): an authenticated session
+// requires the caller's verified uid to match owner_id; a guest session
+// requires a valid X-Owner-Token header. Centralized here so the three
+// call sites can't quietly drift out of sync with each other.
+export function verifySessionOwnership(
+  session: { owner_id: string | null; owner_token_hash: string | null },
+  userId: string | null,
+  request: Request,
+): boolean {
+  if (session.owner_id !== null) {
+    return userId === session.owner_id;
+  }
+  const ownerToken = request.headers.get("X-Owner-Token");
+  if (!ownerToken || !session.owner_token_hash) return false;
+  return verifyOwnerToken(ownerToken, session.owner_token_hash);
+}

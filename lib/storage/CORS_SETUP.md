@@ -10,7 +10,7 @@ API/wrangler if you prefer).
   {
     "AllowedOrigins": ["http://localhost:3000"],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["Content-Type"],
+    "AllowedHeaders": ["Content-Type", "Content-Disposition"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
   }
