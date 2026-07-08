@@ -55,6 +55,20 @@ export async function POST(request: Request) {
   // id ourselves and return the values we already computed -- no read-back
   // needed for a row we just wrote with data we already have in hand.
   if (user) {
+    // Defensive self-heal: sessions.owner_id references profiles(id), not
+    // auth.users(id) directly, and the profiles row is normally created by
+    // a trigger firing on auth.users insert. If that row is somehow
+    // missing -- e.g. an account created before the trigger existed, which
+    // is exactly the bug this comment is here because of -- the insert
+    // below would fail its foreign key constraint. Upserting here means
+    // that gap can't silently break session creation again, regardless of
+    // why the profile row was missing. `ignoreDuplicates` makes this a
+    // no-op if the row already exists (the common case), so this isn't
+    // doing meaningful extra work on every request.
+    await supabase
+      .from("profiles")
+      .upsert({ id: user.sub }, { ignoreDuplicates: true });
+
     const visibility = requestedVisibility ?? "private";
     const days = expiresInDays
       ? Math.min(expiresInDays, AUTHED_DEFAULT_EXPIRY_DAYS)

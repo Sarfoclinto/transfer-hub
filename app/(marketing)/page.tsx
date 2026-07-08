@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Dropzone } from "@/components/upload/dropzone";
+import { MixedUploadForm } from "@/components/upload/mixed-upload-form";
 
 export default function MarketingHomePage() {
   return (
@@ -15,7 +15,7 @@ export default function MarketingHomePage() {
         </p>
       </div>
 
-      <Dropzone />
+      <MixedUploadForm />
 
       <Button asChild variant="ghost" size="sm">
         <Link href="/dashboard">Have an account? Go to your dashboard</Link>

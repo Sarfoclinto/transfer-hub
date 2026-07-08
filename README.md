@@ -97,7 +97,26 @@ the link on another, download) works end to end.
   check reuses the same service-role-read-then-verify pattern as file
   uploads, and the insert avoids `.select()` for the same reason as
   before (guest sessions fail RLS SELECT by design).
-- ⬜ Slice 2: mixed-session frontend (add multiple items, text and/or
+- ✅ Slice 2 (this branch): mixed-session frontend.
+  `components/upload/mixed-upload-form.tsx` is the real orchestrator now
+  -- lazily creates one shared session (a cached in-flight promise
+  prevents a race where two near-simultaneous adds could split across
+  two different sessions), shows a persistent share-link card that stays
+  visible while more items get added, and a running list of what's been
+  added so far. `dropzone.tsx` was refactored to be session-agnostic (it
+  used to own session creation AND a terminal "success" screen, which
+  doesn't fit "add several things over time") -- it now just adds one
+  file to whatever session it's given via props and reports back.
+
+  **Real bug fixed along the way, unrelated to this slice's own work**:
+  authenticated session creation could fail with `violates foreign key
+  constraint sessions_owner_id_fkey`. Root cause: `sessions.owner_id`
+  references `profiles(id)`, not `auth.users(id)` directly, and an
+  account created before migration 0001's auto-create trigger existed
+  has no matching `profiles` row. Fixed with a backfill migration
+  (`0004_backfill_profiles.sql`) plus a defensive upsert in
+  `sessions/create` itself, so a missing profile row can't silently
+  break session creation again regardless of the cause.
   files, to one session before sharing the link)
 - ⬜ Slice 3: preview components (Markdown render, syntax-highlighted
   code) wired into the session view page

@@ -34,6 +34,35 @@ in `types/database.ts`):
 npx supabase gen types typescript --linked > types/database.ts
 ```
 
+## Troubleshooting: "violates foreign key constraint sessions_owner_id_fkey"
+
+This means the signed-in user has an `auth.users` row but no matching
+`profiles` row -- usually because their account was created before
+migration 0001 (which defines the trigger that auto-creates `profiles`
+rows) was applied to this project. Run `0004_backfill_profiles.sql` --
+it's safe to run any number of times, and also adds a policy letting a
+user self-heal their own missing profile going forward. The app itself
+also defensively upserts a profile row before creating a session now, so
+this shouldn't resurface even for edge cases the backfill doesn't catch.
+
+## Troubleshooting: "new row violates row-level security policy"
+
+If an insert that should be allowed (e.g. `with check (true)` on
+`sessions`) fails with this error, it almost always means a policy is
+missing -- usually because an earlier statement in a migration errored
+mid-script (like re-running the same file twice and hitting "policy
+already exists"), and the SQL editor stopped before reaching a later
+policy. Check what actually exists:
+
+```sql
+select policyname, cmd, roles, with_check from pg_policies where tablename = 'sessions';
+```
+
+If policies are missing, run `0003_fix_rls_policies_idempotent.sql` --
+it's safe to run any number of times (drops each policy if present, then
+recreates it), so it's a reasonable first thing to try whenever RLS
+behaves unexpectedly.
+
 ## Verifying RLS is actually working
 
 Worth a quick sanity check before moving on: in the Studio's **Table
