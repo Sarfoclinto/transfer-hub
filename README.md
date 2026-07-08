@@ -62,7 +62,30 @@ been tested manually and confirmed working, including Google OAuth. R2
   `dev-r2-test` route has now been deleted in favor of, its job done.
   Password-protected sessions are schema-ready but NOT enforced yet --
   that's Milestone 5.
-- ⬜ Slice 4: frontend -- single-file guest upload + session view page
+- ✅ Slice 4 (this branch): real frontend. `components/upload/dropzone.tsx`
+  drives the full flow (create session → request-upload → PUT to R2 with
+  progress → confirm), homepage hosts it directly. `app/(app)/s/[sessionId]`
+  now fetches real data via the plain anon-key client -- works naturally
+  for public/unlisted sessions through RLS, no service-role needed for
+  reads on this page.
+
+  **Fixed along the way**: session creation was defaulting every session
+  to `visibility: 'private'` regardless of who created it. For an
+  authenticated user that's fine (they can log in from any device), but
+  for a guest it's a dead end -- the owner_token proving ownership only
+  ever lives in the creating browser's localStorage, so a private guest
+  session can never be opened from a second device. That's exactly the
+  workflow this milestone exists to prove. Guests now default to
+  `unlisted`; `private` is still available as an explicit opt-in.
+
+  **Known gap, deferred deliberately**: a guest's own *private* session
+  (the opt-in case) can't be viewed even from the same device yet, since
+  that would need a client-side fetch reading the localStorage token --
+  out of scope for "the common unlisted case," which is what this
+  milestone is about. Worth revisiting alongside Milestone 4's dashboard.
+
+**Milestone 2 is complete** -- the core loop (upload from one device, open
+the link on another, download) works end to end.
 
 ## Stack
 

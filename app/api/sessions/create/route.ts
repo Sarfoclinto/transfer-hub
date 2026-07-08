@@ -17,10 +17,28 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const { title, visibility, expiresInDays } = parsed.data;
+  const { title, visibility: requestedVisibility, expiresInDays } = parsed.data;
 
   const user = await getVerifiedUser();
   const supabase = await createClient();
+
+  // Visibility default depends on who's creating the session, not a single
+  // schema-level default -- these two cases genuinely need different
+  // defaults, not just different data:
+  //
+  // Authenticated: 'private' is a real, useful default. The owner can view
+  // it from any device by logging in (RLS via auth.uid()), so "private"
+  // doesn't mean "unreachable" for them.
+  //
+  // Guest: 'private' would be a dead end. There's no cross-device auth for
+  // guests -- the owner_token proving ownership lives only in the creating
+  // browser's localStorage. A private guest session is therefore only ever
+  // manageable from the same device/browser, which defeats the core
+  // "upload from A, open the link on B" workflow this whole app exists for.
+  // 'unlisted' (viewable via the link, not indexed/discoverable) is the
+  // sensible default here -- a guest can still explicitly request 'private'
+  // if they specifically want a same-device-only session, but it's an
+  // opt-in, not something that silently breaks their first share attempt.
 
   // Note on RLS here: the "anyone can create a session" insert policy
   // (Phase 3) has `with check (true)` -- it doesn't require auth.uid(), so
@@ -37,6 +55,7 @@ export async function POST(request: Request) {
   // id ourselves and return the values we already computed -- no read-back
   // needed for a row we just wrote with data we already have in hand.
   if (user) {
+    const visibility = requestedVisibility ?? "private";
     const days = expiresInDays
       ? Math.min(expiresInDays, AUTHED_DEFAULT_EXPIRY_DAYS)
       : AUTHED_DEFAULT_EXPIRY_DAYS;
@@ -70,6 +89,7 @@ export async function POST(request: Request) {
   const tokenHash = hashOwnerToken(rawToken);
   const expiresAt = new Date(Date.now() + GUEST_EXPIRY_HOURS * 60 * 60 * 1000);
   const id = randomUUID();
+  const visibility = requestedVisibility ?? "unlisted";
 
   const { error } = await supabase.from("sessions").insert({
     id,
