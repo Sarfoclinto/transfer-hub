@@ -14,3 +14,12 @@ export const createSessionSchema = z.object({
 });
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
+
+export const requestUploadSchema = z.object({
+  session_id: z.uuid(),
+  filename: z.string().trim().min(1).max(255),
+  mime_type: z.string().trim().min(1).max(127),
+  size_bytes: z.number().int().positive(),
+});
+
+export type RequestUploadInput = z.infer<typeof requestUploadSchema>;

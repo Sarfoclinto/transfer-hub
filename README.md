@@ -32,6 +32,28 @@ of them touching shared files (`README.md`, `.env.local.example`,
 `package.json`) will produce small, expected conflicts when merged in
 sequence -- not a sign of a mistake.
 
+**Milestone 1 is fully built and merged to `main`.** Auth (slices 2+3) has
+been tested manually and confirmed working, including Google OAuth. R2
+(slice 4) is built but not yet tested end-to-end.
+
+**Milestone 2 — single-file guest upload/download, end-to-end**
+- ✅ Slice 1 (this branch): session creation —
+  `lib/auth/owner-token.ts` (guest ownership token, hash, constant-time
+  verify) + `POST /api/sessions/create` (guest and authenticated paths,
+  guest expiration is server-enforced and NOT client-configurable).
+  Along the way, replaced the placeholder `Database` type with a real
+  hand-authored one matching the migrations -- the placeholder didn't
+  typecheck against actual `.from("sessions")` queries.
+- ✅ Slice 2 (this branch): MIME/extension policy (`lib/storage/mime-policy.ts`)
+  + `POST /api/items/request-upload`. Session-ownership check (guest token
+  vs authenticated owner) uses the service-role client to read the
+  session row -- a guest's private session fails every RLS SELECT policy
+  by design, so there's no anon-key-native way to check "does this caller
+  hold the right token." Applied the insert lesson from slice 1's fix
+  from the start here: no `.select()` chained on the items insert.
+- ⬜ Slice 3: confirm-upload + download endpoints
+- ⬜ Slice 4: frontend -- single-file guest upload + session view page
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind
