@@ -1,15 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, Loader2, CheckCircle2, Copy, AlertCircle } from "lucide-react";
+import { Upload, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { UploadProgress } from "./upload-progress";
+import type { SessionHandle, AddedItem } from "./mixed-upload-form";
 
-type FlowState =
+type State =
   | { status: "idle" }
   | { status: "uploading"; percent: number; fileName: string }
-  | { status: "success"; sessionId: string; itemId: string }
   | { status: "error"; message: string };
 
 // Wraps the actual R2 PUT in a Promise with progress events -- fetch's
@@ -51,9 +51,21 @@ function uploadWithProgress(
   });
 }
 
-export function Dropzone() {
-  const [state, setState] = useState<FlowState>({ status: "idle" });
-  const [copied, setCopied] = useState(false);
+// This component deliberately doesn't create sessions or own a "success"
+// screen anymore (that was fine for a single file, but a mixed session can
+// have several items added over time). It just adds ONE file to whatever
+// session `getSession` resolves to, reports the result via `onAdded`, then
+// resets to idle so another file can be dropped right after -- the calling
+// orchestrator (mixed-upload-form.tsx) owns the running item list and the
+// persistent share-link display.
+export function Dropzone({
+  getSession,
+  onAdded,
+}: {
+  getSession: () => Promise<SessionHandle>;
+  onAdded: (item: AddedItem) => void;
+}) {
+  const [state, setState] = useState<State>({ status: "idle" });
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -61,34 +73,8 @@ export function Dropzone() {
     setState({ status: "uploading", percent: 0, fileName: file.name });
 
     try {
-      // 1. Create a session. No visibility specified -- the route defaults
-      // a guest session to 'unlisted', which is what makes the link
-      // actually openable on another device (see the comment in
-      // app/api/sessions/create/route.ts for why 'private' would be a
-      // dead end here).
-      const sessionRes = await fetch("/api/sessions/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!sessionRes.ok)
-        throw new Error("Could not start a session. Please try again.");
-      const session: { session_id: string; owner_token?: string } =
-        await sessionRes.json();
+      const { sessionId, ownerToken } = await getSession();
 
-      // Store the owner token client-side ONLY -- per Phase 3, this is
-      // what proves ownership for managing this session later from this
-      // same device/browser. It's never sent anywhere except as the
-      // X-Owner-Token header on our own API calls.
-      if (session.owner_token) {
-        localStorage.setItem(
-          `ownerToken:${session.session_id}`,
-          session.owner_token,
-        );
-      }
-      const ownerToken = session.owner_token;
-
-      // 2. Request an upload slot.
       const requestRes = await fetch("/api/items/request-upload", {
         method: "POST",
         headers: {
@@ -96,7 +82,7 @@ export function Dropzone() {
           ...(ownerToken ? { "X-Owner-Token": ownerToken } : {}),
         },
         body: JSON.stringify({
-          session_id: session.session_id,
+          session_id: sessionId,
           filename: file.name,
           mime_type: file.type || "application/octet-stream",
           size_bytes: file.size,
@@ -109,7 +95,7 @@ export function Dropzone() {
       const { item_id, upload_url, content_disposition } =
         await requestRes.json();
 
-      // 3. PUT the actual bytes directly to R2 -- never through our own
+      // PUT the actual bytes directly to R2 -- never through our own
       // server (Phase 2). Content-Type and Content-Disposition must match
       // exactly what was signed server-side, or R2 rejects the request.
       await uploadWithProgress(
@@ -123,8 +109,6 @@ export function Dropzone() {
           setState({ status: "uploading", percent, fileName: file.name }),
       );
 
-      // 4. Confirm -- this is what flips the item to 'ready' and makes it
-      // visible to anyone with the link.
       const confirmRes = await fetch("/api/items/confirm-upload", {
         method: "POST",
         headers: {
@@ -138,11 +122,8 @@ export function Dropzone() {
           "Upload completed but could not be confirmed. Please try again.",
         );
 
-      setState({
-        status: "success",
-        sessionId: session.session_id,
-        itemId: item_id,
-      });
+      onAdded({ id: item_id, kind: "file", title: file.name });
+      setState({ status: "idle" });
     } catch (err) {
       setState({
         status: "error",
@@ -158,50 +139,10 @@ export function Dropzone() {
     if (file) handleFile(file);
   }
 
-  const shareUrl =
-    state.status === "success"
-      ? `${window.location.origin}/s/${state.sessionId}`
-      : "";
-
-  async function copyLink() {
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  if (state.status === "success") {
-    return (
-      <Card className="w-full max-w-md">
-        <CardContent className="flex flex-col items-center gap-4 pt-6 text-center">
-          <CheckCircle2 className="size-10 text-accent" />
-          <p className="text-sm text-muted-foreground">
-            Uploaded. Open this link on any device:
-          </p>
-          <div className="flex w-full items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2">
-            <span className="flex-1 truncate text-left text-sm">
-              {shareUrl}
-            </span>
-            <Button size="sm" variant="ghost" onClick={copyLink}>
-              <Copy className="size-4" />
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setState({ status: "idle" })}
-          >
-            Upload another
-          </Button>
-        </CardContent>
-      </Card>
-    );
-  }
-
   if (state.status === "uploading") {
     return (
-      <Card className="w-full max-w-md">
-        <CardContent className="flex flex-col items-center gap-4 pt-6 text-center">
+      <Card className="w-full">
+        <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
           <Loader2 className="size-8 animate-spin text-accent" />
           <p className="max-w-full truncate text-sm text-muted-foreground">
             {state.fileName}
@@ -217,7 +158,7 @@ export function Dropzone() {
 
   return (
     <Card
-      className={`w-full max-w-md border-2 border-dashed transition-colors ${
+      className={`w-full border-2 border-dashed transition-colors ${
         isDragOver ? "border-accent bg-accent/5" : "border-border"
       }`}
       onDragOver={(e) => {
@@ -227,7 +168,7 @@ export function Dropzone() {
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
     >
-      <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+      <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
         <Upload className="size-8 text-muted-foreground" />
         <div>
           <p className="font-medium">Drag a file here, or</p>
