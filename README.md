@@ -51,7 +51,17 @@ been tested manually and confirmed working, including Google OAuth. R2
   by design, so there's no anon-key-native way to check "does this caller
   hold the right token." Applied the insert lesson from slice 1's fix
   from the start here: no `.select()` chained on the items insert.
-- ⬜ Slice 3: confirm-upload + download endpoints
+- ✅ Slice 3 (this branch): `POST /api/items/confirm-upload` (HEAD-verifies
+  the object actually landed in R2, never trusts the client's claimed
+  size) + `GET /api/items/[id]/download` (visibility checks, the atomic
+  one-time-link consume from Phase 2, redirects to a fresh presigned URL).
+  Factored session-ownership verification into
+  `lib/auth/owner-token.ts#verifySessionOwnership` since it's now used by
+  three endpoints -- also added `Content-Disposition` signing to upload
+  URLs (inline vs attachment per Phase 2), which the temporary
+  `dev-r2-test` route has now been deleted in favor of, its job done.
+  Password-protected sessions are schema-ready but NOT enforced yet --
+  that's Milestone 5.
 - ⬜ Slice 4: frontend -- single-file guest upload + session view page
 
 ## Stack

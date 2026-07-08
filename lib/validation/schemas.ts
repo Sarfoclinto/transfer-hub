@@ -23,3 +23,10 @@ export const requestUploadSchema = z.object({
 });
 
 export type RequestUploadInput = z.infer<typeof requestUploadSchema>;
+
+export const confirmUploadSchema = z.object({
+  item_id: z.string().uuid(),
+});
+
+export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;
+

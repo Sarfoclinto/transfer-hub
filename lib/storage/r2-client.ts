@@ -39,6 +39,20 @@ export function buildStorageKey(
   return `${sessionId}/${itemId}/${safeFilename}`;
 }
 
+// Per Phase 2: previewable types (images, PDF, audio, video) get served
+// inline so the browser renders them; everything else downloads as an
+// attachment rather than potentially executing/rendering in the browser
+// (relevant for things like .html or .svg that could otherwise run as
+// content if a browser were tricked into treating them as navigable).
+export function getContentDisposition(
+  mimeType: string,
+): "inline" | "attachment" {
+  const previewable = ["image/", "application/pdf", "audio/", "video/"];
+  return previewable.some((prefix) => mimeType.startsWith(prefix))
+    ? "inline"
+    : "attachment";
+}
+
 // Short expiry (minutes) by design -- limits the window a leaked upload URL
 // stays valid. This is issued once per upload attempt, not reused.
 export async function getPresignedUploadUrl(
@@ -51,6 +65,7 @@ export async function getPresignedUploadUrl(
     Bucket: BUCKET(),
     Key: key,
     ContentType: contentType,
+    ContentDisposition: getContentDisposition(contentType),
   });
   return getSignedUrl(client, command, { expiresIn: expiresInSeconds });
 }

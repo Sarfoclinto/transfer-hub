@@ -2,21 +2,17 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { verifyOwnerToken } from "@/lib/auth/owner-token";
+import { verifySessionOwnership } from "@/lib/auth/owner-token";
 import { isUploadAllowed } from "@/lib/storage/mime-policy";
 import {
   buildStorageKey,
   getPresignedUploadUrl,
+  getContentDisposition,
 } from "@/lib/storage/r2-client";
 import { requestUploadSchema } from "@/lib/validation/schemas";
 
 export async function POST(request: Request) {
-  let rawBody: unknown;
-  try {
-    rawBody = await request.json();
-  } catch (err) {
-    console.error("Failed to parse JSON:", err);
-  }
+  const rawBody = await request.json().catch(() => ({}));
   const parsed = requestUploadSchema.safeParse(rawBody);
 
   if (!parsed.success) {
@@ -51,25 +47,11 @@ export async function POST(request: Request) {
   const user = await getVerifiedUser();
   const isGuestSession = session.owner_id === null;
 
-  if (isGuestSession) {
-    const ownerToken = request.headers.get("X-Owner-Token");
-    if (
-      !ownerToken ||
-      !session.owner_token_hash ||
-      !verifyOwnerToken(ownerToken, session.owner_token_hash)
-    ) {
-      return NextResponse.json(
-        { error: "Not authorized for this session." },
-        { status: 403 },
-      );
-    }
-  } else {
-    if (!user || user.sub !== session.owner_id) {
-      return NextResponse.json(
-        { error: "Not authorized for this session." },
-        { status: 403 },
-      );
-    }
+  if (!verifySessionOwnership(session, user?.sub ?? null, request)) {
+    return NextResponse.json(
+      { error: "Not authorized for this session." },
+      { status: 403 },
+    );
   }
 
   const policyCheck = isUploadAllowed(filename, size_bytes, isGuestSession);
@@ -107,5 +89,9 @@ export async function POST(request: Request) {
     item_id: itemId,
     upload_url: uploadUrl,
     storage_key: storageKey,
+    // The PUT to upload_url must include this exact Content-Disposition
+    // header, since it's part of what was signed -- otherwise R2 rejects
+    // the request with a signature mismatch (see CORS_SETUP.md).
+    content_disposition: getContentDisposition(mime_type),
   });
 }
