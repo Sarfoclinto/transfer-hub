@@ -35,7 +35,7 @@ export type ConfirmUploadInput = z.infer<typeof confirmUploadSchema>;
 // generous for code/notes/config pastes without being unbounded; tune
 // later if a real use case needs more.
 export const createTextItemSchema = z.object({
-  session_id: z.string().uuid(),
+  session_id: z.uuid(),
   content: z
     .string()
     .min(1)
@@ -45,3 +45,15 @@ export const createTextItemSchema = z.object({
 });
 
 export type CreateTextItemInput = z.infer<typeof createTextItemSchema>;
+
+
+// Per Phase 4 MVP scope: only text content is editable, never files
+// (replacing file bytes would need to re-trigger the whole upload/confirm
+// cycle, a real v2 concern -- see components/upload dropzone's comments).
+export const updateTextItemSchema = z.object({
+  text_content: z.string().min(1).max(5 * 1024 * 1024),
+});
+
+export type UpdateTextItemInput = z.infer<typeof updateTextItemSchema>;
+
+
