@@ -110,7 +110,7 @@ the link on another, download) works end to end.
 
   **Real bug fixed along the way, unrelated to this slice's own work**:
   authenticated session creation could fail with `violates foreign key
-  constraint sessions_owner_id_fkey`. Root cause: `sessions.owner_id`
+constraint sessions_owner_id_fkey`. Root cause: `sessions.owner_id`
   references `profiles(id)`, not `auth.users(id)` directly, and an
   account created before migration 0001's auto-create trigger existed
   has no matching `profiles` row. Fixed with a backfill migration
@@ -118,8 +118,27 @@ the link on another, download) works end to end.
   `sessions/create` itself, so a missing profile row can't silently
   break session creation again regardless of the cause.
   files, to one session before sharing the link)
-- ⬜ Slice 3: preview components (Markdown render, syntax-highlighted
+
+- ✅ Slice 3 (this branch): Markdown + code preview, wired into the
+  session view page for text items. `components/preview/markdown-preview.tsx`
+  (react-markdown + remark-gfm) and `code-preview.tsx`
+  (react-syntax-highlighter) both render as Server Components -- neither
+  needs browser APIs, so zero extra client JS ships for what's a
+  read-only preview. Added `@tailwindcss/typography` for the `prose`
+  classes (Tailwind v4 uses a `@plugin` directive in CSS, not the old
+  `tailwind.config.js` plugins array).
+
+  **Deliberately NOT built yet**: image/PDF preview. Reusing the existing
+  download endpoint for an `<img>` tag would silently consume one-time
+  items and pollute download_count/access_events on every render, just
+  from a thumbnail loading -- not from an explicit download click. Needs
+  a separate non-consuming read path that still refuses one-time items
+  entirely (previewing IS an access for something meant to be accessed
+  once). Left documented in `image-preview.tsx`/`pdf-preview.tsx`'s stub
+  comments; better built alongside Milestone 5 once one-time links have
+  an actual UI and this distinction has real stakes to design against.
   code) wired into the session view page
+
 - ⬜ Slice 4: copy-to-clipboard + text editing
 
 ## Stack
