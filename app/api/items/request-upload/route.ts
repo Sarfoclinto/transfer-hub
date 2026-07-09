@@ -4,6 +4,7 @@ import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
 import { isUploadAllowed } from "@/lib/storage/mime-policy";
+import { checkQuota } from "@/lib/storage/quota";
 import {
   buildStorageKey,
   getPresignedUploadUrl,
@@ -57,6 +58,22 @@ export async function POST(request: Request) {
   const policyCheck = isUploadAllowed(filename, size_bytes, isGuestSession);
   if (!policyCheck.allowed) {
     return NextResponse.json({ error: policyCheck.reason }, { status: 400 });
+  }
+
+  // Quota only applies to authenticated sessions -- guests have no durable
+  // identity to track a running total against (Phase 3), just the per-file
+  // size caps already checked above.
+  if (!isGuestSession && session.owner_id) {
+    const { data: profile } = await serviceClient
+      .from("profiles")
+      .select("storage_used_bytes")
+      .eq("id", session.owner_id)
+      .maybeSingle();
+
+    const quotaCheck = checkQuota(profile?.storage_used_bytes ?? 0, size_bytes);
+    if (!quotaCheck.allowed) {
+      return NextResponse.json({ error: quotaCheck.reason }, { status: 400 });
+    }
   }
 
   const itemId = randomUUID();

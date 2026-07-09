@@ -155,6 +155,24 @@ constraint sessions_owner_id_fkey`. Root cause: `sessions.owner_id`
 **Milestone 3 is complete** -- text items, mixed sessions, previews, copy,
 and editing all work end to end.
 
+**Milestone 4 — authenticated flow + dashboard**
+
+- ✅ Slice 1 (this branch): storage quota enforcement.
+  `lib/storage/quota.ts` defines the 2GB free-tier quota (Phase 3) and a
+  `checkQuota` helper. `request-upload` checks it against the account's
+  current `storage_used_bytes` before issuing a presigned URL (using the
+  client's _claimed_ size -- a cheap first-pass deterrent, not a hard
+  guarantee, consistent with the existing size-cap checks elsewhere);
+  `confirm-upload` increments the real running total using the
+  HEAD-verified _actual_ size, via a new atomic Postgres function
+  (`0005_storage_quota_increment.sql`) rather than a read-then-write from
+  application code, which would risk a lost update under concurrent
+  uploads. Guarded to only increment on the first pending→ready
+  transition, so an idempotent re-confirm can't double-count.
+- ⬜ Slice 2: dashboard data layer + session list UI
+- ⬜ Slice 3: filter + search
+- ⬜ Slice 4: delete (soft-delete, R2 cleanup deferred to Milestone 6)
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind
