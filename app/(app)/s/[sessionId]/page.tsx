@@ -1,6 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { MarkdownPreview } from "@/components/preview/markdown-preview";
+import { CodePreview } from "@/components/preview/code-preview";
 
 export default async function SessionPage({
   params,
@@ -45,7 +47,9 @@ export default async function SessionPage({
 
   const { data: items } = await supabase
     .from("items")
-    .select("id, kind, title, original_filename, mime_type, size_bytes")
+    .select(
+      "id, kind, title, original_filename, mime_type, size_bytes, text_content, text_language",
+    )
     .eq("session_id", sessionId)
     .order("order_index", { ascending: true });
 
@@ -74,15 +78,31 @@ export default async function SessionPage({
                 {item.original_filename ?? item.title ?? "Untitled"}
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {item.mime_type}
-                {item.size_bytes != null &&
-                  ` · ${formatBytes(item.size_bytes)}`}
-              </span>
-              <Button asChild size="sm">
-                <a href={`/api/items/${item.id}/download`}>Download</a>
-              </Button>
+            <CardContent className="flex flex-col gap-4">
+              {item.kind === "text" && item.text_content != null && (
+                <div className="max-h-96 overflow-auto">
+                  {item.text_language === "markdown" ? (
+                    <MarkdownPreview content={item.text_content} />
+                  ) : (
+                    <CodePreview
+                      content={item.text_content}
+                      language={item.text_language}
+                    />
+                  )}
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {item.kind === "text"
+                    ? (item.text_language ?? "text")
+                    : item.mime_type}
+                  {item.size_bytes != null &&
+                    ` · ${formatBytes(item.size_bytes)}`}
+                </span>
+                <Button asChild size="sm">
+                  <a href={`/api/items/${item.id}/download`}>Download</a>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))
