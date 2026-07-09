@@ -139,7 +139,21 @@ constraint sessions_owner_id_fkey`. Root cause: `sessions.owner_id`
   an actual UI and this distinction has real stakes to design against.
   code) wired into the session view page
 
-- ⬜ Slice 4: copy-to-clipboard + text editing
+- ✅ Slice 4 (this branch): copy-to-clipboard + text editing, closing out
+  Milestone 3. `PATCH /api/items/[id]` implemented (text-only per Phase 4
+  MVP scope -- file replacement is a real v2 concern, not attempted).
+  `components/preview/text-item-actions.tsx` wraps the server-rendered
+  Markdown/code preview via the children-slot pattern, adding Copy
+  (works for any viewer) and Edit (owner-only) controls without turning
+  the preview components themselves into client components. Ownership
+  for the Edit button is a UI convenience only -- computed server-side
+  for authenticated owners, and via a client-side localStorage check
+  (`useSyncExternalStore`, not `useEffect`+`setState`, per a real lint
+  rule this tripped) for guests; the actual security check is the PATCH
+  handler's `verifySessionOwnership`, same as every other write.
+
+**Milestone 3 is complete** -- text items, mixed sessions, previews, copy,
+and editing all work end to end.
 
 ## Stack
 

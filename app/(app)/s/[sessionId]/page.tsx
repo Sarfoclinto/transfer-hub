@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { MarkdownPreview } from "@/components/preview/markdown-preview";
 import { CodePreview } from "@/components/preview/code-preview";
+import { TextItemActions } from "@/components/preview/text-item-actions";
 
 export default async function SessionPage({
   params,
@@ -24,7 +25,7 @@ export default async function SessionPage({
   // upload/download for the common, unlisted case).
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, title, visibility")
+    .select("id, title, visibility, owner_id")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -44,6 +45,9 @@ export default async function SessionPage({
       </div>
     );
   }
+
+  const user = await getVerifiedUser();
+  const isOwnerAuthed = user?.sub === session.owner_id;
 
   const { data: items } = await supabase
     .from("items")
@@ -80,16 +84,23 @@ export default async function SessionPage({
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {item.kind === "text" && item.text_content != null && (
-                <div className="max-h-96 overflow-auto">
-                  {item.text_language === "markdown" ? (
-                    <MarkdownPreview content={item.text_content} />
-                  ) : (
-                    <CodePreview
-                      content={item.text_content}
-                      language={item.text_language}
-                    />
-                  )}
-                </div>
+                <TextItemActions
+                  itemId={item.id}
+                  sessionId={sessionId}
+                  content={item.text_content}
+                  isOwnerAuthed={isOwnerAuthed}
+                >
+                  <div className="max-h-96 overflow-auto">
+                    {item.text_language === "markdown" ? (
+                      <MarkdownPreview content={item.text_content} />
+                    ) : (
+                      <CodePreview
+                        content={item.text_content}
+                        language={item.text_language}
+                      />
+                    )}
+                  </div>
+                </TextItemActions>
               )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
