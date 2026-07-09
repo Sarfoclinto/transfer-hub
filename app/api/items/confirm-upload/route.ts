@@ -99,6 +99,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
+  // Only increment on the FIRST transition to 'ready' -- this endpoint is
+  // deliberately idempotent (calling it again for an already-ready item
+  // just re-confirms rather than erroring), so guarding on the status we
+  // read BEFORE this update prevents double-counting the same file's size
+  // if it's confirmed more than once. Guests have no profile/quota to
+  // track against (Phase 3), so this only applies to authenticated sessions.
+  if (item.status === "pending" && session.owner_id && actualSizeBytes) {
+    await serviceClient.rpc("increment_storage_used", {
+      p_user_id: session.owner_id,
+      p_delta: actualSizeBytes,
+    });
+  }
+
   return NextResponse.json({
     item_id,
     status: "ready",
