@@ -20,6 +20,7 @@ export const requestUploadSchema = z.object({
   filename: z.string().trim().min(1).max(255),
   mime_type: z.string().trim().min(1).max(127),
   size_bytes: z.number().int().positive(),
+  one_time: z.boolean().optional().default(false),
 });
 
 export type RequestUploadInput = z.infer<typeof requestUploadSchema>;
@@ -42,18 +43,19 @@ export const createTextItemSchema = z.object({
     .max(5 * 1024 * 1024),
   language: z.string().trim().max(50).optional(),
   title: z.string().trim().max(255).optional(),
+  one_time: z.boolean().optional().default(false),
 });
 
 export type CreateTextItemInput = z.infer<typeof createTextItemSchema>;
-
 
 // Per Phase 4 MVP scope: only text content is editable, never files
 // (replacing file bytes would need to re-trigger the whole upload/confirm
 // cycle, a real v2 concern -- see components/upload dropzone's comments).
 export const updateTextItemSchema = z.object({
-  text_content: z.string().min(1).max(5 * 1024 * 1024),
+  text_content: z
+    .string()
+    .min(1)
+    .max(5 * 1024 * 1024),
 });
 
 export type UpdateTextItemInput = z.infer<typeof updateTextItemSchema>;
-
-

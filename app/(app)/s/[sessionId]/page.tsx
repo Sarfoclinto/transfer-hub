@@ -1,11 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { MarkdownPreview } from "@/components/preview/markdown-preview";
 import { CodePreview } from "@/components/preview/code-preview";
 import { TextItemActions } from "@/components/preview/text-item-actions";
 import { OwnerOnly } from "@/components/preview/owner-only";
 import { DeleteSessionButton } from "@/components/dashboard/delete-session-button";
+import { DownloadButton } from "@/components/preview/download-button";
 import { formatBytes } from "@/lib/storage/quota";
 
 export default async function SessionPage({
@@ -55,7 +55,7 @@ export default async function SessionPage({
   const { data: items } = await supabase
     .from("items")
     .select(
-      "id, kind, title, original_filename, mime_type, size_bytes, text_content, text_language",
+      "id, kind, title, original_filename, mime_type, size_bytes, text_content, text_language, one_time",
     )
     .eq("session_id", sessionId)
     .order("order_index", { ascending: true });
@@ -116,9 +116,7 @@ export default async function SessionPage({
                   {item.size_bytes != null &&
                     ` · ${formatBytes(item.size_bytes)}`}
                 </span>
-                <Button asChild size="sm">
-                  <a href={`/api/items/${item.id}/download`}>Download</a>
-                </Button>
+                <DownloadButton itemId={item.id} oneTime={item.one_time} />
               </div>
             </CardContent>
           </Card>

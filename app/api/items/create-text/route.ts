@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const { session_id, content, language, title } = parsed.data;
+  const { session_id, content, language, title, one_time } = parsed.data;
 
   // Same reasoning as request-upload: a guest session's row fails every
   // RLS SELECT policy by design, so the ownership check needs to read it
@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     text_content: content,
     text_language: language ?? null,
     status: "ready", // immediately ready -- no upload cycle for text
+    one_time,
   });
 
   if (insertError) {
