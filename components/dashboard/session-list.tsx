@@ -1,40 +1,70 @@
+"use client";
+
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SessionFilters } from "./session-filters";
 import { CopyLinkButton } from "./copy-link-button";
 
-type SessionRow = {
+export type SessionKind = "text" | "file" | "mixed" | "empty";
+
+export type SessionSummary = {
   id: string;
   title: string | null;
   visibility: string;
   created_at: string;
   expires_at: string | null;
+  kind: SessionKind;
+  itemCount: number;
 };
 
-function summarizeKinds(items: { kind: string }[]): string {
-  if (items.length === 0) return "empty";
-  const kinds = new Set(items.map((i) => i.kind));
-  if (kinds.size > 1) return `mixed · ${items.length} items`;
-  const kind = [...kinds][0];
-  return items.length === 1 ? kind : `${kind} · ${items.length} items`;
+function kindLabel(summary: SessionSummary): string {
+  if (summary.kind === "empty") return "empty";
+  if (summary.kind === "mixed") return `mixed · ${summary.itemCount} items`;
+  return summary.itemCount === 1
+    ? summary.kind
+    : `${summary.kind} · ${summary.itemCount} items`;
 }
 
-// Server Component deliberately -- itemsBySession is a Map built in the
-// page's Server Component; keeping this a Server Component too means it
-// never has to cross the client-serialization boundary (Maps aren't
-// directly serializable as Client Component props). Only the copy button
-// below needs actual client interactivity.
-export function SessionList({
-  sessions,
-  itemsBySession,
-}: {
-  sessions: SessionRow[];
-  itemsBySession: Map<string, { kind: string }[]>;
-}) {
+// Client Component: needs to own filter/search state and re-render the
+// list as the person types/selects, which a Server Component can't do.
+// The data itself (SessionSummary[]) is computed server-side in
+// dashboard/page.tsx and passed down as a plain, serializable array --
+// deliberately NOT the Map used to compute it, since Maps don't cross the
+// client-props serialization boundary.
+export function SessionList({ sessions }: { sessions: SessionSummary[] }) {
+  const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
+
+  const filtered = useMemo(() => {
+    return sessions.filter((s) => {
+      const matchesType = typeFilter === "all" || s.kind === typeFilter;
+      const matchesQuery =
+        query.trim() === "" ||
+        (s.title ?? "untitled session")
+          .toLowerCase()
+          .includes(query.trim().toLowerCase());
+      return matchesType && matchesQuery;
+    });
+  }, [sessions, query, typeFilter]);
+
   return (
     <div className="flex flex-col gap-3">
-      {sessions.map((session) => {
-        const items = itemsBySession.get(session.id) ?? [];
-        return (
+      <SessionFilters
+        query={query}
+        onQueryChange={setQuery}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+      />
+
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6 text-sm text-muted-foreground">
+            No sessions match your search.
+          </CardContent>
+        </Card>
+      ) : (
+        filtered.map((session) => (
           <Card key={session.id}>
             <CardHeader>
               <CardTitle className="truncate">
@@ -44,7 +74,7 @@ export function SessionList({
             <CardContent className="flex items-center justify-between gap-4">
               <div className="flex flex-col gap-0.5 text-sm text-muted-foreground">
                 <span>
-                  {summarizeKinds(items)} · {session.visibility}
+                  {kindLabel(session)} · {session.visibility}
                 </span>
                 <span>
                   Created {new Date(session.created_at).toLocaleDateString()}
@@ -63,8 +93,8 @@ export function SessionList({
               </div>
             </CardContent>
           </Card>
-        );
-      })}
+        ))
+      )}
     </div>
   );
 }

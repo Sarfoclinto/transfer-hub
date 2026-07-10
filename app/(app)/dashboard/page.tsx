@@ -1,7 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { AUTHED_STORAGE_QUOTA_BYTES, formatBytes } from "@/lib/storage/quota";
-import { SessionList } from "@/components/dashboard/session-list";
+import {
+  SessionList,
+  type SessionSummary,
+  type SessionKind,
+} from "@/components/dashboard/session-list";
 
 export default async function DashboardPage() {
   // Layout above already redirects if there's no user, so this is safe --
@@ -46,6 +50,29 @@ export default async function DashboardPage() {
     itemsBySession.set(item.session_id, list);
   }
 
+  // Reduced to a plain, serializable array here -- the Map above is a
+  // server-only convenience for grouping and never crosses into
+  // SessionList, which is a Client Component (owns filter/search state).
+  function summarizeKind(sessionItems: { kind: string }[]): SessionKind {
+    if (sessionItems.length === 0) return "empty";
+    const kinds = new Set(sessionItems.map((i) => i.kind));
+    if (kinds.size > 1) return "mixed";
+    return kinds.has("text") ? "text" : "file";
+  }
+
+  const sessionSummaries: SessionSummary[] = (sessions ?? []).map((s) => {
+    const sessionItems = itemsBySession.get(s.id) ?? [];
+    return {
+      id: s.id,
+      title: s.title,
+      visibility: s.visibility,
+      created_at: s.created_at,
+      expires_at: s.expires_at,
+      kind: summarizeKind(sessionItems),
+      itemCount: sessionItems.length,
+    };
+  });
+
   const usedBytes = profile?.storage_used_bytes ?? 0;
 
   return (
@@ -68,7 +95,7 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       ) : (
-        <SessionList sessions={sessions} itemsBySession={itemsBySession} />
+        <SessionList sessions={sessionSummaries} />
       )}
     </div>
   );
