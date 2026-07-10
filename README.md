@@ -182,7 +182,16 @@ and editing all work end to end.
   `"use client"`) so that `Map` never has to cross the client-props
   serialization boundary -- only the Copy Link button itself is a small
   client island.
-- ⬜ Slice 3: filter + search
+- ✅ Slice 3 (this branch): filter + search on the dashboard, done
+  client-side over the already-fetched session list rather than a
+  separate search endpoint -- a personal dashboard's dataset is small
+  enough that this is both simpler and instant, with server-side
+  `tsvector` search (the index already exists from Phase 1) staying
+  available to swap in later if that assumption stops holding.
+  `session-list.tsx` became a Client Component (owns filter/search
+  state); `dashboard/page.tsx` now reduces its server-side `Map` into a
+  plain, serializable `SessionSummary[]` before handing off to it, since
+  the Map itself still can't cross that boundary.
 - ⬜ Slice 4: delete (soft-delete, R2 cleanup deferred to Milestone 6)
 
 ## Stack
