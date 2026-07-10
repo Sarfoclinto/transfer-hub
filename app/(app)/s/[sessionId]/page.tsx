@@ -4,6 +4,9 @@ import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { MarkdownPreview } from "@/components/preview/markdown-preview";
 import { CodePreview } from "@/components/preview/code-preview";
 import { TextItemActions } from "@/components/preview/text-item-actions";
+import { OwnerOnly } from "@/components/preview/owner-only";
+import { DeleteSessionButton } from "@/components/dashboard/delete-session-button";
+import { formatBytes } from "@/lib/storage/quota";
 
 export default async function SessionPage({
   params,
@@ -59,10 +62,13 @@ export default async function SessionPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
+      <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">
           {session.title ?? "Shared transfer"}
         </h1>
+        <OwnerOnly sessionId={sessionId} isOwnerAuthed={isOwnerAuthed}>
+          <DeleteSessionButton sessionId={sessionId} redirectTo="/" />
+        </OwnerOnly>
       </div>
 
       {!items || items.length === 0 ? (
@@ -120,10 +126,4 @@ export default async function SessionPage({
       )}
     </div>
   );
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

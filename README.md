@@ -192,7 +192,28 @@ and editing all work end to end.
   state); `dashboard/page.tsx` now reduces its server-side `Map` into a
   plain, serializable `SessionSummary[]` before handing off to it, since
   the Map itself still can't cross that boundary.
-- ⬜ Slice 4: delete (soft-delete, R2 cleanup deferred to Milestone 6)
+- ✅ Slice 4 (this branch): delete, closing out Milestone 4.
+  `DELETE /api/sessions/[id]` soft-deletes the session and cascades to
+  its items, releasing an authenticated owner's storage quota
+  immediately (via the same atomic RPC as the M4S1 increment) rather
+  than waiting for Milestone 6's cleanup cron -- actual R2 object
+  deletion still happens there, this is just the logical delete.
+  Delete is available both on the dashboard (ownership guaranteed by
+  the listing query) and on the session page itself, gated by a new
+  `OwnerOnly` wrapper (same localStorage-token-check pattern as
+  `TextItemActions`, not yet consolidated into one shared hook since
+  there are only two call sites).
+
+  **Real RLS gap fixed along the way**: `"owner can select own
+  sessions"` and the items visibility policy didn't check `deleted_at`
+  in the *owner's own* read path -- only in the public/unlisted branch.
+  A soft-deleted session would have stayed visible to its own owner
+  indefinitely. Nothing could trigger this before delete existed, so it
+  never surfaced in slices 1-3; fixed in
+  `0006_fix_deleted_session_visibility.sql` before it could ship broken.
+
+**Milestone 4 is complete** -- authenticated users have a working
+dashboard with quota, search, filtering, and delete.
 
 ## Stack
 
