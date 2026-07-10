@@ -169,7 +169,19 @@ and editing all work end to end.
   application code, which would risk a lost update under concurrent
   uploads. Guarded to only increment on the first pending→ready
   transition, so an idempotent re-confirm can't double-count.
-- ⬜ Slice 2: dashboard data layer + session list UI
+- ✅ Slice 2 (this branch): real dashboard, replacing the placeholder
+  from Milestone 1. Shows storage usage (`X of 2GB used`, tying back to
+  M4S1's quota work) and a list of the user's sessions with a
+  type/item-count summary, visibility, created/expiry dates, a Copy Link
+  button, and a View link. Sessions and items are fetched as two
+  separate queries rather than a PostgREST embedded select --
+  `types/database.ts`'s hand-authored `Relationships` are empty arrays,
+  so an embedded select would work at runtime but not be meaningfully
+  typed; grouping in JS via a `Map` keeps everything type-safe.
+  `session-list.tsx` is deliberately a Server Component (not
+  `"use client"`) so that `Map` never has to cross the client-props
+  serialization boundary -- only the Copy Link button itself is a small
+  client island.
 - ⬜ Slice 3: filter + search
 - ⬜ Slice 4: delete (soft-delete, R2 cleanup deferred to Milestone 6)
 
