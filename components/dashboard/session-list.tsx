@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SessionFilters } from "./session-filters";
 import { CopyLinkButton } from "./copy-link-button";
+import { DeleteSessionButton } from "./delete-session-button";
 
 export type SessionKind = "text" | "file" | "mixed" | "empty";
 
@@ -90,6 +91,7 @@ export function SessionList({ sessions }: { sessions: SessionSummary[] }) {
                 >
                   View
                 </Link>
+                <DeleteSessionButton sessionId={session.id} />
               </div>
             </CardContent>
           </Card>
