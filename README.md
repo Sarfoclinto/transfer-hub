@@ -215,6 +215,22 @@ and editing all work end to end.
 **Milestone 4 is complete** -- authenticated users have a working
 dashboard with quota, search, filtering, and delete.
 
+**Milestone 5 — sharing hardening**
+- ✅ Slice 1 (this branch): QR codes. `components/qr-code.tsx`
+  (`qrcode.react`, always a white background regardless of theme --
+  scanners rely on contrast, dark mode would work against that). Wired
+  into both the upload success card (`mixed-upload-form.tsx`) and the
+  dashboard (`session-list.tsx`, one card refactored out of the list's
+  `.map()` specifically so each card's QR toggle is independent state).
+- ⬜ Slice 2: one-time download links (the atomic consume logic already
+  exists from Phase 2/M2S3 -- this slice is the UI to actually set
+  `one_time` at creation)
+- ⬜ Slice 3: password-protected sessions
+- ⬜ Slice 4: image/PDF preview (deferred from M3S3 -- needs the
+  one-time-link semantics fully built and testable first, which slice 2
+  provides)
+
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind

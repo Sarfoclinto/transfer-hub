@@ -7,10 +7,12 @@ import {
   Copy,
   Plus,
   AlertCircle,
+  QrCode as QrCodeIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dropzone } from "./dropzone";
+import { QrCode } from "@/components/qr-code";
 
 export type SessionHandle = { sessionId: string; ownerToken?: string };
 export type AddedItem = { id: string; kind: "file" | "text"; title: string };
@@ -26,6 +28,7 @@ export function MixedUploadForm() {
   const [session, setSession] = useState<SessionHandle | null>(null);
   const [items, setItems] = useState<AddedItem[]>([]);
   const [copied, setCopied] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const [isTextFormOpen, setIsTextFormOpen] = useState(false);
   const [textContent, setTextContent] = useState("");
   const [textTitle, setTextTitle] = useState("");
@@ -133,14 +136,29 @@ export function MixedUploadForm() {
     <div className="flex w-full max-w-md flex-col gap-4">
       {session && (
         <Card>
-          <CardContent className="flex items-center gap-2 pt-6">
-            <span className="flex-1 truncate text-left text-sm">
-              {shareUrl}
-            </span>
-            <Button size="sm" variant="ghost" onClick={copyLink}>
-              <Copy className="size-4" />
-              {copied ? "Copied" : "Copy"}
-            </Button>
+          <CardContent className="flex flex-col gap-3 pt-6">
+            <div className="flex items-center gap-2">
+              <span className="flex-1 truncate text-left text-sm">
+                {shareUrl}
+              </span>
+              <Button size="sm" variant="ghost" onClick={copyLink}>
+                <Copy className="size-4" />
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setShowQr((v) => !v)}
+              >
+                <QrCodeIcon className="size-4" />
+                {showQr ? "Hide QR" : "Show QR"}
+              </Button>
+            </div>
+            {showQr && (
+              <div className="flex justify-center">
+                <QrCode value={shareUrl} />
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
