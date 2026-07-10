@@ -222,7 +222,14 @@ dashboard with quota, search, filtering, and delete.
   into both the upload success card (`mixed-upload-form.tsx`) and the
   dashboard (`session-list.tsx`, one card refactored out of the list's
   `.map()` specifically so each card's QR toggle is independent state).
-- ⬜ Slice 2: one-time download links (the atomic consume logic already
+- ✅ Slice 2 (this branch): one-time download links, UI on top of the
+  atomic consume logic that's existed since M2S3. `one_time` threads
+  through both creation endpoints (a checkbox above the dropzone for
+  the next file, a checkbox in the text-add form). `download-button.tsx`
+  adds a `confirm()` before navigating for one-time items -- purely a
+  courtesy against an accidental click, not a security measure; the
+  download endpoint's atomic `UPDATE...WHERE deleted_at IS NULL` is what
+  actually enforces the guarantee regardless of what the button does.
   exists from Phase 2/M2S3 -- this slice is the UI to actually set
   `one_time` at creation)
 - ⬜ Slice 3: password-protected sessions

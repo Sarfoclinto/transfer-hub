@@ -61,9 +61,11 @@ function uploadWithProgress(
 export function Dropzone({
   getSession,
   onAdded,
+  oneTime = false,
 }: {
   getSession: () => Promise<SessionHandle>;
   onAdded: (item: AddedItem) => void;
+  oneTime?: boolean;
 }) {
   const [state, setState] = useState<State>({ status: "idle" });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,6 +88,7 @@ export function Dropzone({
           filename: file.name,
           mime_type: file.type || "application/octet-stream",
           size_bytes: file.size,
+          one_time: oneTime,
         }),
       });
       if (!requestRes.ok) {
@@ -122,7 +125,7 @@ export function Dropzone({
           "Upload completed but could not be confirmed. Please try again.",
         );
 
-      onAdded({ id: item_id, kind: "file", title: file.name });
+      onAdded({ id: item_id, kind: "file", title: file.name, oneTime });
       setState({ status: "idle" });
     } catch (err) {
       setState({

@@ -15,7 +15,12 @@ import { Dropzone } from "./dropzone";
 import { QrCode } from "@/components/qr-code";
 
 export type SessionHandle = { sessionId: string; ownerToken?: string };
-export type AddedItem = { id: string; kind: "file" | "text"; title: string };
+export type AddedItem = {
+  id: string;
+  kind: "file" | "text";
+  title: string;
+  oneTime: boolean;
+};
 
 const TEXT_LANGUAGE_OPTIONS = [
   { value: "plaintext", label: "Plain text" },
@@ -35,6 +40,8 @@ export function MixedUploadForm() {
   const [textLanguage, setTextLanguage] = useState<string>("plaintext");
   const [textError, setTextError] = useState<string | null>(null);
   const [isSubmittingText, setIsSubmittingText] = useState(false);
+  const [fileOneTime, setFileOneTime] = useState(false);
+  const [textOneTime, setTextOneTime] = useState(false);
 
   // Cached in-flight promise so a file drop and a text submission racing
   // each other (or two file drops in quick succession before the first
@@ -98,6 +105,7 @@ export function MixedUploadForm() {
           content: textContent,
           language: textLanguage,
           title: textTitle || undefined,
+          one_time: textOneTime,
         }),
       });
       if (!res.ok) {
@@ -109,9 +117,11 @@ export function MixedUploadForm() {
         id: item_id,
         kind: "text",
         title: textTitle || "Untitled note",
+        oneTime: textOneTime,
       });
       setTextContent("");
       setTextTitle("");
+      setTextOneTime(false);
       setIsTextFormOpen(false);
     } catch (err) {
       setTextError(
@@ -163,7 +173,21 @@ export function MixedUploadForm() {
         </Card>
       )}
 
-      <Dropzone getSession={ensureSession} onAdded={handleAdded} />
+      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={fileOneTime}
+          onChange={(e) => setFileOneTime(e.target.checked)}
+          className="size-4 rounded border-input"
+        />
+        Make the next file a one-time download
+      </label>
+
+      <Dropzone
+        getSession={ensureSession}
+        onAdded={handleAdded}
+        oneTime={fileOneTime}
+      />
 
       {isTextFormOpen ? (
         <Card>
@@ -191,6 +215,15 @@ export function MixedUploadForm() {
                 </option>
               ))}
             </select>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={textOneTime}
+                onChange={(e) => setTextOneTime(e.target.checked)}
+                className="size-4 rounded border-input"
+              />
+              One-time download
+            </label>
             {textError && (
               <p className="flex items-center gap-1.5 text-sm text-destructive">
                 <AlertCircle className="size-4" />
@@ -237,6 +270,11 @@ export function MixedUploadForm() {
                   <FileIcon className="size-4 text-muted-foreground" />
                 )}
                 <span className="truncate">{item.title}</span>
+                {item.oneTime && (
+                  <span className="text-xs text-muted-foreground">
+                    (one-time)
+                  </span>
+                )}
               </div>
             ))}
           </CardContent>

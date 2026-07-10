@@ -22,7 +22,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const { session_id, filename, mime_type, size_bytes } = parsed.data;
+  const { session_id, filename, mime_type, size_bytes, one_time } = parsed.data;
 
   // Reading the session row here needs the service-role client, not the
   // regular anon-key one: a guest session is (by design) private and has
@@ -94,6 +94,7 @@ export async function POST(request: Request) {
     size_bytes,
     storage_key: storageKey,
     status: "pending",
+    one_time,
   });
 
   if (insertError) {
