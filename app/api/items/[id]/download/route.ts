@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { getVerifiedUser } from "@/lib/supabase/server";
-import { verifySessionOwnership } from "@/lib/auth/owner-token";
-import { verifyUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
+import { resolveItemAccess } from "@/lib/server/item-access";
 import { getPresignedDownloadUrl } from "@/lib/storage/r2-client";
 
 export async function GET(
@@ -11,60 +8,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: itemId } = await params;
+
+  const access = await resolveItemAccess(itemId, request);
+  if (!access.ok) {
+    return NextResponse.json(
+      { error: access.error },
+      { status: access.status },
+    );
+  }
+  const { item } = access;
   const serviceClient = createServiceRoleClient();
-
-  const { data: item, error: itemError } = await serviceClient
-    .from("items")
-    .select(
-      "id, session_id, kind, storage_key, mime_type, title, original_filename, text_content, status, deleted_at, one_time, download_count",
-    )
-    .eq("id", itemId)
-    .maybeSingle();
-
-  if (itemError || !item || item.deleted_at || item.status !== "ready") {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
-  }
-
-  const { data: session, error: sessionError } = await serviceClient
-    .from("sessions")
-    .select(
-      "id, owner_id, owner_token_hash, visibility, deleted_at, expires_at, password_hash",
-    )
-    .eq("id", item.session_id)
-    .maybeSingle();
-
-  if (sessionError || !session || session.deleted_at) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
-  }
-  if (session.expires_at && new Date(session.expires_at) < new Date()) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
-  }
-
-  const user = await getVerifiedUser();
-  const isOwner = verifySessionOwnership(session, user?.sub ?? null, request);
-
-  // Password gate is independent of visibility -- a public or unlisted
-  // session can still have a password set (Phase 4: an orthogonal extra
-  // layer, not tied to visibility). Owners always bypass their own gate.
-  // This is the same check as the session page's gate, checked
-  // independently here since a page-level gate alone wouldn't stop
-  // someone hitting this URL directly.
-  if (session.password_hash && !isOwner) {
-    const cookieStore = await cookies();
-    const unlockCookie = cookieStore.get(unlockCookieName(session.id))?.value;
-    if (!verifyUnlockToken(session.id, unlockCookie)) {
-      return NextResponse.json(
-        { error: "Password required." },
-        { status: 401 },
-      );
-    }
-  }
-
-  const isPubliclyVisible =
-    session.visibility === "public" || session.visibility === "unlisted";
-  if (!isPubliclyVisible && !isOwner) {
-    return NextResponse.json({ error: "Not found." }, { status: 404 });
-  }
 
   // One-time links: the atomic gate from Phase 2. A plain check-then-act
   // (read deleted_at, then update) would race if two requests hit this

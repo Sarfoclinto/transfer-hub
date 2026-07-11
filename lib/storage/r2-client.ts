@@ -53,6 +53,15 @@ export function getContentDisposition(
     : "attachment";
 }
 
+
+// Same underlying question as getContentDisposition (is this a type a
+// browser can render directly), exposed as its own boolean for the
+// preview endpoint rather than duplicating the previewable-types list a
+// second time.
+export function isPreviewableMime(mimeType: string): boolean {
+  return getContentDisposition(mimeType) === "inline";
+}
+
 // Short expiry (minutes) by design -- limits the window a leaked upload URL
 // stays valid. This is issued once per upload attempt, not reused.
 export async function getPresignedUploadUrl(
