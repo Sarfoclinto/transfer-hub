@@ -277,8 +277,25 @@ protection, and image/PDF preview all work end to end.
   other password-protected link it might try). Checked BEFORE
   `bcrypt.compare`, and consumed regardless of right/wrong, since every
   attempt should count against a brute-force budget, not just failures.
-- ⬜ Slice 3: expiration cleanup cron (soft-delete → R2 cleanup →
-  hard-delete)
+- ✅ Slice 3 (this branch): the expiration cleanup cron, two phases in
+  one endpoint (`GET /api/cron/cleanup-expired`, `vercel.json` schedules
+  it daily at 3am UTC -- check Vercel's current docs on Hobby-tier cron
+  frequency limits if you want it more often).
+  **Phase 1** soft-deletes sessions past `expires_at` (releasing quota
+  immediately, same as manual delete). **Phase 2** hard-deletes anything
+  soft-deleted for 7+ days -- covering both expired sessions from phase
+  1 *and* manually-deleted ones, since both converge to the same
+  soft-deleted state and get treated identically here regardless of
+  which path got them there. R2 object deletion happens only in phase
+  2, not immediately at soft-delete time -- this means a wrongly-
+  expired session has a full week to be noticed and recovered before
+  its actual file bytes are gone, not just its DB row. Guarded by
+  `CRON_SECRET` (Vercel Cron sends this automatically as a Bearer
+  token); degrades to a loud warning if unset rather than blocking,
+  since the worst an unauthenticated caller could do here is
+  redundantly process rows that were already going to be deleted
+  anyway -- low stakes compared to, say, the service-role write paths
+  elsewhere.
 - ⬜ Slice 4: structured logging baseline
 
 ## Stack
