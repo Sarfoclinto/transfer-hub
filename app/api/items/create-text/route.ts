@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
+import { checkGuestItemRateLimit } from "@/lib/rate-limit";
 import { createTextItemSchema } from "@/lib/validation/schemas";
 
 // Text items are simpler than file items by design (Phase 2): no R2, no
@@ -43,6 +44,16 @@ export async function POST(request: Request) {
       { error: "Not authorized for this session." },
       { status: 403 },
     );
+  }
+
+  if (session.owner_id === null) {
+    const rateLimitCheck = await checkGuestItemRateLimit(request);
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        { error: rateLimitCheck.reason },
+        { status: 429 },
+      );
+    }
   }
 
   const itemId = randomUUID();

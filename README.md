@@ -261,6 +261,23 @@ dashboard with quota, search, filtering, and delete.
 **Milestone 5 is complete** -- QR codes, one-time links, password
 protection, and image/PDF preview all work end to end.
 
+**Milestone 6 — ops & safety baseline**
+- ✅ Slice 1 (this branch): Upstash-backed rate limiting for guest
+  session creation (10/hour/IP) and guest item creation (30/hour/IP,
+  more generous since one mixed-session upload naturally creates
+  several items). `lib/rate-limit.ts` degrades to a no-op with a loud
+  console warning if `UPSTASH_REDIS_REST_URL`/`TOKEN` aren't set --
+  fine for local dev, confirmed working via the build's own output
+  (`[rate-limit] ... rate limiting is DISABLED`), NOT fine before a
+  public deploy. Authenticated users aren't rate-limited by this --
+  they have accountability via login instead.
+- ⬜ Slice 2: rate limiting on password-unlock attempts (the limiter
+  already exists in `lib/rate-limit.ts` from this slice, just not
+  wired into the unlock endpoint yet)
+- ⬜ Slice 3: expiration cleanup cron (soft-delete → R2 cleanup →
+  hard-delete)
+- ⬜ Slice 4: structured logging baseline
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind
