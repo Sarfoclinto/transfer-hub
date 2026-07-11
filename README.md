@@ -271,9 +271,12 @@ protection, and image/PDF preview all work end to end.
   (`[rate-limit] ... rate limiting is DISABLED`), NOT fine before a
   public deploy. Authenticated users aren't rate-limited by this --
   they have accountability via login instead.
-- ⬜ Slice 2: rate limiting on password-unlock attempts (the limiter
-  already exists in `lib/rate-limit.ts` from this slice, just not
-  wired into the unlock endpoint yet)
+- ✅ Slice 2 (this branch): rate limiting on password-unlock attempts
+  (5 attempts/5 min, keyed by IP + session id -- not IP alone, so
+  guessing on one shared link doesn't burn an IP's budget for every
+  other password-protected link it might try). Checked BEFORE
+  `bcrypt.compare`, and consumed regardless of right/wrong, since every
+  attempt should count against a brute-force budget, not just failures.
 - ⬜ Slice 3: expiration cleanup cron (soft-delete → R2 cleanup →
   hard-delete)
 - ⬜ Slice 4: structured logging baseline

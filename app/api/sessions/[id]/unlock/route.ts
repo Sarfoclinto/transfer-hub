@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { signUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
+import { checkPasswordAttemptRateLimit } from "@/lib/rate-limit";
 
 const unlockSchema = z.object({ password: z.string().min(1) });
 
@@ -41,6 +42,19 @@ export async function POST(
       { error: "This session isn't password-protected." },
       { status: 400 },
     );
+  }
+
+  // Checked BEFORE bcrypt.compare, and consumed regardless of whether the
+  // password turns out to be right or wrong -- this is specifically a
+  // brute-force control (Phase 3), so every attempt counts against the
+  // budget, not just failed ones (an attacker could otherwise script
+  // unlimited guesses as long as they eventually got lucky on attempt N).
+  const rateLimitCheck = await checkPasswordAttemptRateLimit(
+    request,
+    sessionId,
+  );
+  if (!rateLimitCheck.allowed) {
+    return NextResponse.json({ error: rateLimitCheck.reason }, { status: 429 });
   }
 
   const isMatch = await bcrypt.compare(
