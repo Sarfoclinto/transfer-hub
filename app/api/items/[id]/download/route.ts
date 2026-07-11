@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getVerifiedUser } from "@/lib/supabase/server";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
+import { verifyUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { getPresignedDownloadUrl } from "@/lib/storage/r2-client";
 
 export async function GET(
@@ -38,17 +40,30 @@ export async function GET(
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
-  // TODO (Milestone 5): session.password_hash isn't enforced yet -- there's
-  // no UI to set one until then, so every session is effectively unprotected
-  // by password today regardless of this column's value. Add the gate here
-  // once that milestone lands, before trusting visibility alone.
+  const user = await getVerifiedUser();
+  const isOwner = verifySessionOwnership(session, user?.sub ?? null, request);
+
+  // Password gate is independent of visibility -- a public or unlisted
+  // session can still have a password set (Phase 4: an orthogonal extra
+  // layer, not tied to visibility). Owners always bypass their own gate.
+  // This is the same check as the session page's gate, checked
+  // independently here since a page-level gate alone wouldn't stop
+  // someone hitting this URL directly.
+  if (session.password_hash && !isOwner) {
+    const cookieStore = await cookies();
+    const unlockCookie = cookieStore.get(unlockCookieName(session.id))?.value;
+    if (!verifyUnlockToken(session.id, unlockCookie)) {
+      return NextResponse.json(
+        { error: "Password required." },
+        { status: 401 },
+      );
+    }
+  }
+
   const isPubliclyVisible =
     session.visibility === "public" || session.visibility === "unlisted";
-  if (!isPubliclyVisible) {
-    const user = await getVerifiedUser();
-    if (!verifySessionOwnership(session, user?.sub ?? null, request)) {
-      return NextResponse.json({ error: "Not found." }, { status: 404 });
-    }
+  if (!isPubliclyVisible && !isOwner) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
   // One-time links: the atomic gate from Phase 2. A plain check-then-act
