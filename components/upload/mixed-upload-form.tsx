@@ -10,6 +10,7 @@ import {
   QrCode as QrCodeIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dropzone } from "./dropzone";
 import { QrCode } from "@/components/qr-code";
@@ -42,6 +43,8 @@ export function MixedUploadForm() {
   const [isSubmittingText, setIsSubmittingText] = useState(false);
   const [fileOneTime, setFileOneTime] = useState(false);
   const [textOneTime, setTextOneTime] = useState(false);
+  const [password, setPassword] = useState("");
+  const [isPasswordEnabled, setIsPasswordEnabled] = useState(false);
 
   // Cached in-flight promise so a file drop and a text submission racing
   // each other (or two file drops in quick succession before the first
@@ -57,7 +60,9 @@ export function MixedUploadForm() {
         const res = await fetch("/api/sessions/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({}),
+          body: JSON.stringify({
+            password: isPasswordEnabled && password ? password : undefined,
+          }),
         });
         if (!res.ok)
           throw new Error("Could not start a session. Please try again.");
@@ -144,6 +149,28 @@ export function MixedUploadForm() {
 
   return (
     <div className="flex w-full max-w-md flex-col gap-4">
+      {!session && (
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={isPasswordEnabled}
+              onChange={(e) => setIsPasswordEnabled(e.target.checked)}
+              className="size-4 rounded border-input"
+            />
+            Protect this transfer with a password
+          </label>
+          {isPasswordEnabled && (
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          )}
+        </div>
+      )}
+
       {session && (
         <Card>
           <CardContent className="flex flex-col gap-3 pt-6">

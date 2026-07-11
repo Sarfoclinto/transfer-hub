@@ -232,7 +232,17 @@ dashboard with quota, search, filtering, and delete.
   actually enforces the guarantee regardless of what the button does.
   exists from Phase 2/M2S3 -- this slice is the UI to actually set
   `one_time` at creation)
-- ⬜ Slice 3: password-protected sessions
+- ✅ Slice 3 (this branch): password-protected sessions. Password set
+  once at creation (bcrypt-hashed, `password_hash` column existed since
+  Phase 1 but was never enforced until now). `lib/auth/session-unlock.ts`
+  signs a stateless, HttpOnly, HMAC-based unlock cookie per session --
+  same "casual barrier, not bank-grade" scoping as one-time links and
+  guest tokens elsewhere. The creator is auto-unlocked for their own
+  session at creation time, no need to immediately re-enter their own
+  password. Both the session page AND the download endpoint check the
+  gate independently -- a page-level check alone wouldn't stop someone
+  hitting the download URL directly, same reasoning as every other
+  ownership check in this app.
 - ⬜ Slice 4: image/PDF preview (deferred from M3S3 -- needs the
   one-time-link semantics fully built and testable first, which slice 2
   provides)

@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { generateOwnerToken, hashOwnerToken } from "@/lib/auth/owner-token";
+import { signUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { createSessionSchema } from "@/lib/validation/schemas";
 
 const GUEST_EXPIRY_HOURS = 48;
@@ -17,7 +19,18 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const { title, visibility: requestedVisibility, expiresInDays } = parsed.data;
+  const {
+    title,
+    visibility: requestedVisibility,
+    expiresInDays,
+    password,
+  } = parsed.data;
+
+  // Hashed once, used by whichever path below actually runs. bcrypt cost
+  // factor 10 is a reasonable default for a casual-sharing feature -- this
+  // isn't guarding anything more sensitive than "don't let a random link-
+  // guesser in," not an account credential.
+  const passwordHash = password ? await bcrypt.hash(password, 10) : null;
 
   const user = await getVerifiedUser();
   const supabase = await createClient();
@@ -81,6 +94,7 @@ export async function POST(request: Request) {
       owner_id: user.sub,
       title: title ?? null,
       visibility,
+      password_hash: passwordHash,
       expires_at: expiresAt.toISOString(),
     });
 
@@ -88,12 +102,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       session_id: id,
       visibility,
       expires_at: expiresAt.toISOString(),
       // no owner_token -- ownership is via auth.uid() + RLS for this path
     });
+
+    // Auto-unlock for the creator -- they just set this password, they
+    // shouldn't immediately have to re-enter it to view their own session.
+    if (passwordHash) {
+      response.cookies.set(unlockCookieName(id), signUnlockToken(id), {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 365,
+        path: "/",
+      });
+    }
+
+    return response;
   }
 
   // Guest path: expiration is NOT client-configurable, regardless of what
@@ -110,6 +138,7 @@ export async function POST(request: Request) {
     owner_token_hash: tokenHash,
     title: title ?? null,
     visibility,
+    password_hash: passwordHash,
     expires_at: expiresAt.toISOString(),
   });
 
@@ -117,10 +146,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     session_id: id,
     owner_token: rawToken, // returned ONCE -- client must store this itself
     visibility,
     expires_at: expiresAt.toISOString(),
   });
+
+  if (passwordHash) {
+    response.cookies.set(unlockCookieName(id), signUnlockToken(id), {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 365,
+      path: "/",
+    });
+  }
+
+  return response;
 }

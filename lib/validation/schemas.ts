@@ -11,6 +11,7 @@ export const createSessionSchema = z.object({
   title: z.string().trim().max(200).optional(),
   visibility: z.enum(["private", "unlisted", "public"]).optional(),
   expiresInDays: z.number().int().min(1).max(90).optional(),
+  password: z.string().min(4).max(100).optional(),
 });
 
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;

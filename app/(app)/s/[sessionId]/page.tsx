@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { MarkdownPreview } from "@/components/preview/markdown-preview";
@@ -6,6 +7,8 @@ import { TextItemActions } from "@/components/preview/text-item-actions";
 import { OwnerOnly } from "@/components/preview/owner-only";
 import { DeleteSessionButton } from "@/components/dashboard/delete-session-button";
 import { DownloadButton } from "@/components/preview/download-button";
+import { PasswordGate } from "@/components/preview/password-gate";
+import { verifyUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { formatBytes } from "@/lib/storage/quota";
 
 export default async function SessionPage({
@@ -28,7 +31,7 @@ export default async function SessionPage({
   // upload/download for the common, unlisted case).
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, title, visibility, owner_id")
+    .select("id, title, visibility, owner_id, password_hash")
     .eq("id", sessionId)
     .maybeSingle();
 
@@ -51,6 +54,23 @@ export default async function SessionPage({
 
   const user = await getVerifiedUser();
   const isOwnerAuthed = user?.sub === session.owner_id;
+
+  // Password gate: owners always bypass it (they set the password or are
+  // the authenticated owner either way). Everyone else needs a valid
+  // unlock cookie for THIS session -- checked here, and independently
+  // re-checked in the download endpoint itself, since a page-level gate
+  // alone wouldn't stop someone hitting the download URL directly.
+  if (session.password_hash && !isOwnerAuthed) {
+    const cookieStore = await cookies();
+    const unlockCookie = cookieStore.get(unlockCookieName(sessionId))?.value;
+    if (!verifyUnlockToken(sessionId, unlockCookie)) {
+      return (
+        <div className="flex flex-col gap-6">
+          <PasswordGate sessionId={sessionId} />
+        </div>
+      );
+    }
+  }
 
   const { data: items } = await supabase
     .from("items")
