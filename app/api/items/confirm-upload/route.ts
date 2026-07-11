@@ -4,6 +4,7 @@ import { getVerifiedUser } from "@/lib/supabase/server";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
 import { headObject } from "@/lib/storage/r2-client";
 import { confirmUploadSchema } from "@/lib/validation/schemas";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   const rawBody = await request.json().catch(() => ({}));
@@ -96,6 +97,9 @@ export async function POST(request: Request) {
     .eq("id", item_id);
 
   if (updateError) {
+    logger.error("confirm-upload: item update failed", {
+      error: updateError.message,
+    });
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 

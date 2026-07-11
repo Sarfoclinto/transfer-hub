@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
 import { checkGuestItemRateLimit } from "@/lib/rate-limit";
 import { createTextItemSchema } from "@/lib/validation/schemas";
+import { logger } from "@/lib/logger";
 
 // Text items are simpler than file items by design (Phase 2): no R2, no
 // presigned URLs, no upload/confirm cycle -- the content IS the payload,
@@ -75,6 +76,9 @@ export async function POST(request: Request) {
   });
 
   if (insertError) {
+    logger.error("create-text: item insert failed", {
+      error: insertError.message,
+    });
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 

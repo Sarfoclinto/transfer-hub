@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { resolveItemAccess } from "@/lib/server/item-access";
 import { getPresignedDownloadUrl } from "@/lib/storage/r2-client";
+import { logger } from "@/lib/logger";
 
 export async function GET(
   request: Request,
@@ -36,6 +37,9 @@ export async function GET(
       .select("id");
 
     if (consumeError) {
+      logger.error("download: one-time consume update failed", {
+        error: consumeError.message,
+      });
       return NextResponse.json(
         { error: consumeError.message },
         { status: 500 },

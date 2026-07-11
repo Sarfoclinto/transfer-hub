@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { deleteObject } from "@/lib/storage/r2-client";
+import { logger } from "@/lib/logger";
 
 // How long a session sits soft-deleted before its R2 objects and DB rows
 // are actually removed. This buffer exists specifically so a wrongly-
@@ -23,9 +24,11 @@ function isAuthorized(request: Request): boolean {
     // do here is limited -- this only ever touches rows already past their
     // expiration or already soft-deleted for a week, never live data an
     // attacker could use this to destroy early.
-    console.warn(
-      "[cleanup-cron] CRON_SECRET not set -- this endpoint is unauthenticated. " +
-        "Low risk (it only processes already-expired/already-deleted rows), but set it before a public deploy.",
+    logger.warn(
+      "cleanup-cron: CRON_SECRET not set, endpoint is unauthenticated",
+      {
+        route: "cron/cleanup-expired",
+      },
     );
     return true;
   }
@@ -46,12 +49,19 @@ export async function GET(request: Request) {
   // session and a manually-deleted one converge to the same state and get
   // handled identically by phase 2 below, regardless of which path got
   // them there.
-  const { data: expiredSessions } = await serviceClient
-    .from("sessions")
-    .select("id, owner_id")
-    .is("deleted_at", null)
-    .lt("expires_at", now)
-    .limit(BATCH_LIMIT);
+  const { data: expiredSessions, error: expiredQueryError } =
+    await serviceClient
+      .from("sessions")
+      .select("id, owner_id")
+      .is("deleted_at", null)
+      .lt("expires_at", now)
+      .limit(BATCH_LIMIT);
+
+  if (expiredQueryError) {
+    logger.error("cleanup-cron: phase 1 query failed", {
+      error: expiredQueryError.message,
+    });
+  }
 
   let expiredCount = 0;
   for (const session of expiredSessions ?? []) {
@@ -97,12 +107,18 @@ export async function GET(request: Request) {
   const bufferCutoff = new Date(
     Date.now() - HARD_DELETE_BUFFER_DAYS * 24 * 60 * 60 * 1000,
   ).toISOString();
-  const { data: staleSessions } = await serviceClient
+  const { data: staleSessions, error: staleQueryError } = await serviceClient
     .from("sessions")
     .select("id")
     .not("deleted_at", "is", null)
     .lt("deleted_at", bufferCutoff)
     .limit(BATCH_LIMIT);
+
+  if (staleQueryError) {
+    logger.error("cleanup-cron: phase 2 query failed", {
+      error: staleQueryError.message,
+    });
+  }
 
   let hardDeletedCount = 0;
   let r2DeleteErrors = 0;
@@ -124,10 +140,11 @@ export async function GET(request: Request) {
         await deleteObject(item.storage_key!);
       } catch (err) {
         r2DeleteErrors++;
-        console.error(
-          `[cleanup-cron] Failed to delete R2 object for item ${item.id}:`,
-          err,
-        );
+        logger.error("cleanup-cron: failed to delete R2 object", {
+          itemId: item.id,
+          storageKey: item.storage_key,
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     }
 
@@ -135,6 +152,12 @@ export async function GET(request: Request) {
     await serviceClient.from("sessions").delete().eq("id", session.id);
     hardDeletedCount++;
   }
+
+  logger.info("cleanup-cron: run complete", {
+    expired: expiredCount,
+    hardDeleted: hardDeletedCount,
+    r2DeleteErrors,
+  });
 
   return NextResponse.json({
     expired: expiredCount,

@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getVerifiedUser } from "@/lib/supabase/server";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
 import { updateTextItemSchema } from "@/lib/validation/schemas";
+import { logger } from "@/lib/logger";
 
 // TODO (Milestone 4): GET item metadata (RLS-gated) -- not needed yet since
 // the session page reads items directly via the anon client; this becomes
@@ -80,6 +81,9 @@ export async function PATCH(
     .eq("id", itemId);
 
   if (updateError) {
+    logger.error("items/[id]: text edit update failed", {
+      error: updateError.message,
+    });
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 

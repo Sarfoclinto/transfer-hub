@@ -296,7 +296,24 @@ protection, and image/PDF preview all work end to end.
   redundantly process rows that were already going to be deleted
   anyway -- low stakes compared to, say, the service-role write paths
   elsewhere.
-- ⬜ Slice 4: structured logging baseline
+- ✅ Slice 4 (this branch): structured logging, closing out Milestone 6.
+  `lib/logger.ts` -- JSON console output, no external service (Phase 5's
+  own scope for this: "no need for a dedicated observability tool yet").
+  Confirmed working via the build's own output -- the rate-limit warning
+  now prints as real structured JSON instead of a plain string. Used
+  only for genuine server-side failures (a DB error, an R2 failure)
+  worth investigating later, deliberately NOT for expected 4xx control
+  flow (400/403/404/429) -- logging every rejected request as an "error"
+  would drown out the signal the moment real traffic shows up. Wired
+  into the cleanup cron (phase summaries + R2 deletion failures, since
+  it's a background job nobody's watching in real time) and every
+  genuine 500-status path across the write endpoints.
+
+**Milestone 6 is complete** -- rate limiting, the expiration cleanup
+cron, and structured logging are all in place. This feels like the
+right point to pause building and actually deploy, per our earlier
+conversation -- real strangers hitting a public URL is exactly when
+these three things start to matter.
 
 ## Stack
 

@@ -6,6 +6,7 @@ import { generateOwnerToken, hashOwnerToken } from "@/lib/auth/owner-token";
 import { signUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { checkGuestSessionRateLimit } from "@/lib/rate-limit";
 import { createSessionSchema } from "@/lib/validation/schemas";
+import { logger } from "@/lib/logger";
 
 const GUEST_EXPIRY_HOURS = 48;
 const AUTHED_DEFAULT_EXPIRY_DAYS = 90;
@@ -100,6 +101,9 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      logger.error("sessions/create: session insert failed", {
+        error: error.message,
+      });
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -149,6 +153,9 @@ export async function POST(request: Request) {
   });
 
   if (error) {
+    logger.error("sessions/create: session insert failed", {
+      error: error.message,
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

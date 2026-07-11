@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getVerifiedUser } from "@/lib/supabase/server";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
+import { logger } from "@/lib/logger";
 
 // TODO (Milestone 4+ if ever needed): GET a single session's metadata --
 // not built yet since nothing currently needs it outside the contexts that
@@ -86,6 +87,9 @@ export async function DELETE(
     .eq("id", sessionId);
 
   if (deleteError) {
+    logger.error("sessions/[id]: delete update failed", {
+      error: deleteError.message,
+    });
     return NextResponse.json({ error: deleteError.message }, { status: 500 });
   }
 

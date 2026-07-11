@@ -5,6 +5,7 @@
 // local development for anyone who hasn't set up Upstash yet. The warning
 // is loud on purpose: silent no-op rate limiting is the kind of gap that's
 // easy to forget about until it matters.
+import { logger } from "@/lib/logger";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -13,9 +14,11 @@ const isConfigured = Boolean(
 );
 
 if (!isConfigured) {
-  console.warn(
-    "[rate-limit] UPSTASH_REDIS_REST_URL/TOKEN not set -- rate limiting is DISABLED. " +
-      "Fine for local dev, not fine for a public deploy. See .env.local.example.",
+  logger.warn(
+    "rate-limit: UPSTASH_REDIS_REST_URL/TOKEN not set, rate limiting is disabled",
+    {
+      module: "rate-limit",
+    },
   );
 }
 

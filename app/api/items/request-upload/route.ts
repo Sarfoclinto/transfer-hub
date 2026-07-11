@@ -12,6 +12,7 @@ import {
   getContentDisposition,
 } from "@/lib/storage/r2-client";
 import { requestUploadSchema } from "@/lib/validation/schemas";
+import { logger } from "@/lib/logger";
 
 export async function POST(request: Request) {
   const rawBody = await request.json().catch(() => ({}));
@@ -109,6 +110,9 @@ export async function POST(request: Request) {
   });
 
   if (insertError) {
+    logger.error("request-upload: item insert failed", {
+      error: insertError.message,
+    });
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
