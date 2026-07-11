@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { createClient, getVerifiedUser } from "@/lib/supabase/server";
 import { generateOwnerToken, hashOwnerToken } from "@/lib/auth/owner-token";
 import { signUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
+import { checkGuestSessionRateLimit } from "@/lib/rate-limit";
 import { createSessionSchema } from "@/lib/validation/schemas";
 
 const GUEST_EXPIRY_HOURS = 48;
@@ -127,6 +128,11 @@ export async function POST(request: Request) {
   // Guest path: expiration is NOT client-configurable, regardless of what
   // expiresInDays was set to above -- guests always get the short, fixed
   // window (Phase 4's guest quota policy).
+  const rateLimitCheck = await checkGuestSessionRateLimit(request);
+  if (!rateLimitCheck.allowed) {
+    return NextResponse.json({ error: rateLimitCheck.reason }, { status: 429 });
+  }
+
   const rawToken = generateOwnerToken();
   const tokenHash = hashOwnerToken(rawToken);
   const expiresAt = new Date(Date.now() + GUEST_EXPIRY_HOURS * 60 * 60 * 1000);

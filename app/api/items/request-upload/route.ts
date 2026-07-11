@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
 import { isUploadAllowed } from "@/lib/storage/mime-policy";
 import { checkQuota } from "@/lib/storage/quota";
+import { checkGuestItemRateLimit } from "@/lib/rate-limit";
 import {
   buildStorageKey,
   getPresignedUploadUrl,
@@ -53,6 +54,16 @@ export async function POST(request: Request) {
       { error: "Not authorized for this session." },
       { status: 403 },
     );
+  }
+
+  if (isGuestSession) {
+    const rateLimitCheck = await checkGuestItemRateLimit(request);
+    if (!rateLimitCheck.allowed) {
+      return NextResponse.json(
+        { error: rateLimitCheck.reason },
+        { status: 429 },
+      );
+    }
   }
 
   const policyCheck = isUploadAllowed(filename, size_bytes, isGuestSession);
