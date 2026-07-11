@@ -28,8 +28,8 @@ export default async function AppLayout({
                 </Button>
               </form>
             ) : (
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/login">Log in</Link>
+              <Button render={<Link href="/login" />} variant="ghost" size="sm">
+                Log in
               </Button>
             )}
           </nav>

@@ -17,8 +17,8 @@ export default function MarketingHomePage() {
 
       <MixedUploadForm />
 
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/dashboard">Have an account? Go to your dashboard</Link>
+      <Button render={<Link href="/dashboard" />} variant="ghost" size="sm">
+        Have an account? Go to your dashboard
       </Button>
     </main>
   );
