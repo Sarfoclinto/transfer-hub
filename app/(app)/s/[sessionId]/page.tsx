@@ -8,8 +8,11 @@ import { OwnerOnly } from "@/components/preview/owner-only";
 import { DeleteSessionButton } from "@/components/dashboard/delete-session-button";
 import { DownloadButton } from "@/components/preview/download-button";
 import { PasswordGate } from "@/components/preview/password-gate";
+import { ImagePreview } from "@/components/preview/image-preview";
+import { PdfPreview } from "@/components/preview/pdf-preview";
 import { verifyUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { formatBytes } from "@/lib/storage/quota";
+import { isPreviewableMime } from "@/lib/storage/r2-client";
 
 export default async function SessionPage({
   params,
@@ -128,6 +131,23 @@ export default async function SessionPage({
                   </div>
                 </TextItemActions>
               )}
+              {/* Video/audio are also "previewable" per isPreviewableMime
+                  (Phase 2 mentions <video>/<audio> as simple additions),
+                  but this slice only builds image/PDF per its own scope --
+                  those items still get a working Download button below,
+                  just no inline player yet. */}
+              {item.kind === "file" &&
+                !item.one_time &&
+                item.mime_type &&
+                isPreviewableMime(item.mime_type) &&
+                (item.mime_type.startsWith("image/") ? (
+                  <ImagePreview
+                    itemId={item.id}
+                    alt={item.original_filename ?? item.title ?? "Preview"}
+                  />
+                ) : item.mime_type === "application/pdf" ? (
+                  <PdfPreview itemId={item.id} />
+                ) : null)}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">
                   {item.kind === "text"

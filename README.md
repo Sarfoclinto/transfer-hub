@@ -205,8 +205,8 @@ and editing all work end to end.
   there are only two call sites).
 
   **Real RLS gap fixed along the way**: `"owner can select own
-  sessions"` and the items visibility policy didn't check `deleted_at`
-  in the *owner's own* read path -- only in the public/unlisted branch.
+sessions"` and the items visibility policy didn't check `deleted_at`
+  in the _owner's own_ read path -- only in the public/unlisted branch.
   A soft-deleted session would have stayed visible to its own owner
   indefinitely. Nothing could trigger this before delete existed, so it
   never surfaced in slices 1-3; fixed in
@@ -216,6 +216,7 @@ and editing all work end to end.
 dashboard with quota, search, filtering, and delete.
 
 **Milestone 5 — sharing hardening**
+
 - ✅ Slice 1 (this branch): QR codes. `components/qr-code.tsx`
   (`qrcode.react`, always a white background regardless of theme --
   scanners rely on contrast, dark mode would work against that). Wired
@@ -243,10 +244,22 @@ dashboard with quota, search, filtering, and delete.
   gate independently -- a page-level check alone wouldn't stop someone
   hitting the download URL directly, same reasoning as every other
   ownership check in this app.
-- ⬜ Slice 4: image/PDF preview (deferred from M3S3 -- needs the
-  one-time-link semantics fully built and testable first, which slice 2
-  provides)
+- ✅ Slice 4 (this branch): image/PDF preview, closing the M3S3 deferral
+  and Milestone 5. `GET /api/items/[id]/preview` is a deliberately
+  SEPARATE endpoint from `/download`, not a shared path with an intent
+  flag -- it never touches `download_count`/consumes one-time items
+  (refuses to serve them at all; previewing IS an access for something
+  meant to be accessed once), logs `'view'` instead of `'download'`.
+  `lib/server/item-access.ts` factors the visibility/expiry/ownership/
+  password resolution shared by both endpoints -- `download/route.ts`
+  was refactored to use it too, rather than risk two copies of that
+  logic drifting apart, same reasoning as `verifySessionOwnership`.
+  Video/audio inline players are NOT built this slice (still get a
+  working Download button) -- noted in the session page as a scoped-out
+  gap, not a silent one.
 
+**Milestone 5 is complete** -- QR codes, one-time links, password
+protection, and image/PDF preview all work end to end.
 
 ## Stack
 
