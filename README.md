@@ -315,6 +315,30 @@ right point to pause building and actually deploy, per our earlier
 conversation -- real strangers hitting a public URL is exactly when
 these three things start to matter.
 
+**Deployed to production**: https://shell-transfer.vercel.app
+
+**Milestone 7 — public sharing & instant download** (post-launch
+enhancement round, driven by a real use case: sharing a large video file
+via a group chat link that should start downloading the moment it's tapped)
+- ✅ Slice 1 (this branch): visibility selector in the upload UI (was
+  previously set only by an unexposed contextual default), moved
+  uploading to its own `/upload` page, homepage now lives in the
+  `(app)` route group (it needs Supabase reads for the next slice's
+  public gallery anyway, and plays more of a "browse" role now than a
+  pure static landing page) with a placeholder for that gallery.
+  Visibility defaults to an explicit "Default" option that omits the
+  field entirely from the request rather than picking one value --
+  preserves the existing smart default (private for an authenticated
+  owner, unlisted for a guest) unless the person actively overrides it.
+- ⬜ Slice 2: real public gallery on the homepage (sessions with
+  `visibility = 'public'`, visible to everyone regardless of login)
+- ⬜ Slice 3: auto-download for single-file share links -- client-side
+  triggered (NOT a server-side redirect), specifically so a messaging
+  app's link-preview crawler doesn't accidentally consume a one-time
+  link or trigger a download before a human ever taps it. One-time
+  items are excluded from auto-trigger entirely regardless.
+
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind

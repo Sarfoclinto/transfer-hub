@@ -18,6 +18,9 @@ export default async function AppLayout({
             Transfer Hub
           </Link>
           <nav className="flex items-center gap-4 text-sm text-muted-foreground">
+            <Link href="/upload" className="hover:text-foreground">
+              Upload
+            </Link>
             <Link href="/dashboard" className="hover:text-foreground">
               Dashboard
             </Link>
@@ -28,9 +31,11 @@ export default async function AppLayout({
                 </Button>
               </form>
             ) : (
-              <Button render={<Link href="/login" />} variant="ghost" size="sm">
-                Log in
-              </Button>
+              <Button
+                render={<Link href="/login"></Link>}
+                variant="ghost"
+                size="sm"
+              />
             )}
           </nav>
         </div>

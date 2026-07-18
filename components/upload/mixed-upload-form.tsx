@@ -30,6 +30,13 @@ const TEXT_LANGUAGE_OPTIONS = [
   { value: "javascript", label: "Code" },
 ] as const;
 
+const VISIBILITY_OPTIONS = [
+  { value: "", label: "Default" },
+  { value: "private", label: "Private -- only you" },
+  { value: "unlisted", label: "Unlisted -- anyone with the link" },
+  { value: "public", label: "Public -- listed on the homepage too" },
+] as const;
+
 export function MixedUploadForm() {
   const [session, setSession] = useState<SessionHandle | null>(null);
   const [items, setItems] = useState<AddedItem[]>([]);
@@ -45,6 +52,13 @@ export function MixedUploadForm() {
   const [textOneTime, setTextOneTime] = useState(false);
   const [password, setPassword] = useState("");
   const [isPasswordEnabled, setIsPasswordEnabled] = useState(false);
+  // "" means "let the server decide" -- private for a signed-in owner
+  // (they can always get back in by logging in), unlisted for a guest
+  // (a private guest session can only ever be opened from the creating
+  // browser, which defeats the point of sharing a link at all -- see the
+  // comment in app/api/sessions/create/route.ts). Only overridden if the
+  // person actively picks something else here.
+  const [visibility, setVisibility] = useState("");
 
   // Cached in-flight promise so a file drop and a text submission racing
   // each other (or two file drops in quick succession before the first
@@ -62,6 +76,7 @@ export function MixedUploadForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             password: isPasswordEnabled && password ? password : undefined,
+            visibility: visibility || undefined,
           }),
         });
         if (!res.ok)
@@ -150,7 +165,24 @@ export function MixedUploadForm() {
   return (
     <div className="flex w-full max-w-md flex-col gap-4">
       {!session && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-sm text-muted-foreground">
+              Who can access this?
+            </label>
+            <select
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value)}
+              className="rounded-md border border-input bg-transparent px-3 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {VISIBILITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input
               type="checkbox"
