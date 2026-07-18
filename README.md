@@ -330,6 +330,35 @@ via a group chat link that should start downloading the moment it's tapped)
   field entirely from the request rather than picking one value --
   preserves the existing smart default (private for an authenticated
   owner, unlisted for a guest) unless the person actively overrides it.
+  - ✅ **fix** (this branch, `fix/upload-failure-handling`, stacked on
+  slice 1): real upload-failure handling, triggered by an actual failed
+  250MB upload during testing. Root cause: XHR's `onerror` fired mid-
+  transfer (a genuine network-level failure, not a bad HTTP response --
+  most likely the tab being backgrounded during a long upload, since
+  browsers throttle/suspend background-tab network activity), which
+  left the item stuck at `status: 'pending'` forever -- invisible on a
+  guest session's own page (RLS only waives the `status = 'ready'`
+  filter for an *authenticated* owner match, and guest ownership isn't
+  something RLS can recognize at all) and a hard `404` from the
+  download endpoint if reached directly.
+  - `dropzone.tsx`: automatic retry (2 attempts, short backoff) for
+    transient failures, re-running the entire flow from `request-upload`
+    onward rather than resuming the same PUT -- a fresh presigned URL
+    is cheap and removes doubt about whether a stale one contributed.
+    Manual Retry button (keeps the `File` reference) once auto-retries
+    are exhausted, plus a hint about backgrounded tabs.
+  - `lib/storage/r2-client.ts`: upload URL expiry bumped 300s → 3600s --
+    a large file on a slow connection can legitimately take longer than
+    a few minutes; download URLs stay short since those are validated
+    once at request start, not throughout the transfer, so they don't
+    have the same problem.
+  - Cleanup cron gained a new **phase 0**: reaps items stuck at
+    `'pending'` for 24+ hours (abandoned uploads, retried-and-abandoned
+    attempts) -- straight to hard-delete, no soft-delete buffer, since a
+    pending item was never visible or downloadable to begin with, so
+    there's no recovery-window benefit the way there is for expired
+    sessions.
+
 - ⬜ Slice 2: real public gallery on the homepage (sessions with
   `visibility = 'public'`, visible to everyone regardless of login)
 - ⬜ Slice 3: auto-download for single-file share links -- client-side

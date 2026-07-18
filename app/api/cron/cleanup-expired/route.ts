@@ -10,6 +10,16 @@ import { logger } from "@/lib/logger";
 // see Phase 2's original reasoning for this design.
 const HARD_DELETE_BUFFER_DAYS = 7;
 
+// How long an item can sit at status='pending' before it's considered
+// abandoned -- covers uploads that failed before confirm-upload ever ran
+// (a dropped connection, a backgrounded tab, someone just closing the
+// tab mid-upload). These were never visible or downloadable to anyone
+// (RLS hides non-'ready' items from everyone except an authenticated
+// owner, and the download endpoint refuses them outright regardless), so
+// unlike expired sessions there's no recovery-window benefit to a soft-
+// delete buffer here -- straight to hard-delete.
+const STALE_PENDING_HOURS = 24;
+
 // Safety cap per run, per phase -- protects a single invocation from
 // trying to process an unbounded backlog and timing out. If a backlog
 // exceeds this, the next scheduled run keeps chipping away at it; nothing
@@ -42,6 +52,42 @@ export async function GET(request: Request) {
 
   const serviceClient = createServiceRoleClient();
   const now = new Date().toISOString();
+
+  // --- Phase 0: reap items abandoned mid-upload (stuck at 'pending') ---
+  const pendingCutoff = new Date(
+    Date.now() - STALE_PENDING_HOURS * 60 * 60 * 1000,
+  ).toISOString();
+  const { data: stalePendingItems, error: stalePendingQueryError } =
+    await serviceClient
+      .from("items")
+      .select("id, storage_key, kind")
+      .eq("status", "pending")
+      .lt("created_at", pendingCutoff)
+      .limit(BATCH_LIMIT);
+
+  if (stalePendingQueryError) {
+    logger.error("cleanup-cron: phase 0 query failed", {
+      error: stalePendingQueryError.message,
+    });
+  }
+
+  let stalePendingCount = 0;
+  for (const item of stalePendingItems ?? []) {
+    // Best-effort, and NOT counted as an r2DeleteErrors-style failure if it
+    // no-ops -- a failed/incomplete PUT normally never created an object at
+    // this key at all (S3-compatible PUT is atomic: it either fully lands
+    // or doesn't exist), so "nothing to delete" is the expected outcome
+    // here, not an error worth logging every run.
+    if (item.kind === "file" && item.storage_key) {
+      try {
+        await deleteObject(item.storage_key);
+      } catch {
+        // expected no-op in the common case, see comment above
+      }
+    }
+    await serviceClient.from("items").delete().eq("id", item.id);
+    stalePendingCount++;
+  }
 
   // --- Phase 1: expire sessions past their expires_at, not yet soft-deleted ---
   // Soft-delete only here -- no R2 touch yet. This is also exactly what
@@ -154,12 +200,14 @@ export async function GET(request: Request) {
   }
 
   logger.info("cleanup-cron: run complete", {
+    stalePendingCleaned: stalePendingCount,
     expired: expiredCount,
     hardDeleted: hardDeletedCount,
     r2DeleteErrors,
   });
 
   return NextResponse.json({
+    stalePendingCleaned: stalePendingCount,
     expired: expiredCount,
     hardDeleted: hardDeletedCount,
     r2DeleteErrors,

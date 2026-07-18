@@ -116,7 +116,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
-  const uploadUrl = await getPresignedUploadUrl(storageKey, mime_type, 300);
+  const uploadUrl = await getPresignedUploadUrl(storageKey, mime_type, 3600);
 
   return NextResponse.json({
     item_id: itemId,

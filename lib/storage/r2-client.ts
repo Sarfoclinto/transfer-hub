@@ -53,7 +53,6 @@ export function getContentDisposition(
     : "attachment";
 }
 
-
 // Same underlying question as getContentDisposition (is this a type a
 // browser can render directly), exposed as its own boolean for the
 // preview endpoint rather than duplicating the previewable-types list a
@@ -64,10 +63,16 @@ export function isPreviewableMime(mimeType: string): boolean {
 
 // Short expiry (minutes) by design -- limits the window a leaked upload URL
 // stays valid. This is issued once per upload attempt, not reused.
+// Longer than download's expiry, deliberately: a large file on a slow
+// connection can legitimately take much longer than a few minutes to
+// finish uploading. Download URLs stay short (validated once at request
+// initiation, not throughout the transfer, so they don't have this
+// problem the same way) -- this is specifically about giving a slow PUT
+// enough headroom to complete.
 export async function getPresignedUploadUrl(
   key: string,
   contentType: string,
-  expiresInSeconds = 300,
+  expiresInSeconds = 3600,
 ) {
   const client = getR2Client();
   const command = new PutObjectCommand({
