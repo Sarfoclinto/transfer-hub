@@ -10,6 +10,7 @@ import { DownloadButton } from "@/components/preview/download-button";
 import { PasswordGate } from "@/components/preview/password-gate";
 import { ImagePreview } from "@/components/preview/image-preview";
 import { PdfPreview } from "@/components/preview/pdf-preview";
+import { AutoDownload } from "@/components/preview/auto-download";
 import { verifyUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { formatBytes } from "@/lib/storage/quota";
 import { isPreviewableMime } from "@/lib/storage/r2-client";
@@ -83,6 +84,18 @@ export default async function SessionPage({
     .eq("session_id", sessionId)
     .order("order_index", { ascending: true });
 
+  // Auto-download only for the unambiguous single-file case: a mixed or
+  // multi-item session has a real choice to make (auto-picking one would
+  // be arbitrary), a text item is better viewed/copied than force-
+  // downloaded, and a one-time item must stay an explicit, deliberate
+  // click -- see AutoDownload's own comment for why this is a client-side
+  // trigger rather than a server redirect in the first place.
+  const soleItem = items && items.length === 1 ? items[0] : null;
+  const autoDownloadItemId =
+    soleItem && soleItem.kind === "file" && !soleItem.one_time
+      ? soleItem.id
+      : null;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -93,6 +106,8 @@ export default async function SessionPage({
           <DeleteSessionButton sessionId={sessionId} redirectTo="/" />
         </OwnerOnly>
       </div>
+
+      {autoDownloadItemId && <AutoDownload itemId={autoDownloadItemId} />}
 
       {!items || items.length === 0 ? (
         <Card>
