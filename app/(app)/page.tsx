@@ -1,8 +1,70 @@
 import Link from "next/link";
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/server";
+import {
+  PublicGallery,
+  type PublicSessionSummary,
+} from "@/components/public/public-gallery";
 
-export default function HomePage() {
+const GALLERY_LIMIT = 30;
+
+export default async function HomePage() {
+  const supabase = await createClient();
+
+  // Deliberately the plain anon-key client, not service-role: this is a
+  // genuine public read, and RLS's "public or unlisted... viewable" policy
+  // (Phase 3) already covers exactly this case -- visibility = 'public',
+  // not deleted, not expired -- for anyone, logged in or not. No special
+  // casing needed here.
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("id, title, created_at")
+    .eq("visibility", "public")
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false })
+    .limit(GALLERY_LIMIT);
+
+  const sessionIds = (sessions ?? []).map((s) => s.id);
+
+  // Same reasoning as the dashboard: a separate query grouped in JS,
+  // rather than a PostgREST embedded select, since types/database.ts's
+  // hand-authored Relationships are empty arrays.
+  const { data: items } =
+    sessionIds.length > 0
+      ? await supabase
+          .from("items")
+          .select("session_id, kind")
+          .in("session_id", sessionIds)
+      : { data: [] };
+
+  const itemsBySession = new Map<string, { kind: string }[]>();
+  for (const item of items ?? []) {
+    const list = itemsBySession.get(item.session_id) ?? [];
+    list.push(item);
+    itemsBySession.set(item.session_id, list);
+  }
+
+  function summarizeKind(
+    sessionItems: { kind: string }[],
+  ): PublicSessionSummary["kind"] {
+    if (sessionItems.length === 0) return "empty";
+    const kinds = new Set(sessionItems.map((i) => i.kind));
+    if (kinds.size > 1) return "mixed";
+    return kinds.has("text") ? "text" : "file";
+  }
+
+  const gallerySessions: PublicSessionSummary[] = (sessions ?? []).map((s) => {
+    const sessionItems = itemsBySession.get(s.id) ?? [];
+    return {
+      id: s.id,
+      title: s.title,
+      created_at: s.created_at,
+      kind: summarizeKind(sessionItems),
+      itemCount: sessionItems.length,
+    };
+  });
+
   return (
     <div className="flex flex-1 flex-col items-center gap-10">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -19,10 +81,11 @@ export default function HomePage() {
         </Button>
       </div>
 
-      {/* TODO (next slice): real public gallery listing sessions with
-          visibility = 'public', replacing this placeholder. */}
-      <div className="w-full max-w-2xl border-t border-border pt-8 text-center text-sm text-muted-foreground">
-        Public uploads will appear here.
+      <div className="flex w-full max-w-2xl flex-col gap-4 border-t border-border pt-8">
+        <h2 className="text-center text-lg font-semibold tracking-tight">
+          Public uploads
+        </h2>
+        <PublicGallery sessions={gallerySessions} />
       </div>
     </div>
   );

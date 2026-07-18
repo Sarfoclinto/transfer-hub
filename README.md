@@ -359,8 +359,16 @@ via a group chat link that should start downloading the moment it's tapped)
     there's no recovery-window benefit the way there is for expired
     sessions.
 
-- ⬜ Slice 2: real public gallery on the homepage (sessions with
-  `visibility = 'public'`, visible to everyone regardless of login)
+- ✅ Slice 2 (this branch): real public gallery on the homepage.
+  `components/public/public-gallery.tsx` -- a Server Component (no
+  owner-only actions like Delete for a visitor browsing what's public,
+  so no client state needed beyond the existing Copy Link island).
+  Fetched via the plain anon-key client: RLS's `"public or unlisted...
+  viewable"` policy (Phase 3) already covers exactly this case --
+  `visibility = 'public'`, not deleted, not expired, for anyone logged
+  in or not -- no new policies or special-casing needed. Same
+  Map-grouping-then-plain-array pattern as the dashboard for computing
+  each session's type summary, capped at the 30 most recent.
 - ⬜ Slice 3: auto-download for single-file share links -- client-side
   triggered (NOT a server-side redirect), specifically so a messaging
   app's link-preview crawler doesn't accidentally consume a one-time
