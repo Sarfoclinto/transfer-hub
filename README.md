@@ -369,12 +369,22 @@ via a group chat link that should start downloading the moment it's tapped)
   in or not -- no new policies or special-casing needed. Same
   Map-grouping-then-plain-array pattern as the dashboard for computing
   each session's type summary, capped at the 30 most recent.
-- ⬜ Slice 3: auto-download for single-file share links -- client-side
-  triggered (NOT a server-side redirect), specifically so a messaging
-  app's link-preview crawler doesn't accidentally consume a one-time
-  link or trigger a download before a human ever taps it. One-time
-  items are excluded from auto-trigger entirely regardless.
+- ✅ Slice 3 (this branch): auto-download for single-file share links,
+  the actual fix for the original 250MB-video-in-a-group-chat use case.
+  `components/preview/auto-download.tsx` fires `window.location.href`
+  to the download endpoint ~600ms after mount -- client-side, NOT a
+  server-side redirect on the session page, specifically so a messaging
+  app's link-preview crawler (which fetches the page server-side but
+  doesn't execute JavaScript) never triggers it. Only applies when a
+  session has exactly one item, that item is a `file` (not `text` --
+  better viewed/copied than force-downloaded), and it's not `one_time`
+  (stays an explicit, deliberate click regardless, given how high-stakes
+  an accidental trigger would be there). The full page and its normal
+  Download button still render underneath regardless -- this is
+  additive, not a replacement, and the safety net if JS is unavailable
+  or someone wants to look before downloading again.
 
+**Milestone 7 (public sharing & instant download) is complete.**
 
 ## Stack
 
