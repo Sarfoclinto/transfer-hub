@@ -386,6 +386,34 @@ via a group chat link that should start downloading the moment it's tapped)
 
 **Milestone 7 (public sharing & instant download) is complete.**
 
+**Milestone 8 — session labeling & discovery** (real feedback from
+production usage: a screenshot of the public gallery showing every
+single entry as "Untitled session," making it impossible to tell them
+apart or find anything)
+- ✅ Slice 1 (this branch): auto-generated display titles + expanded
+  filtering. `lib/display-title.ts` derives a label from a session's
+  own content (first item's filename, or its title for a text item,
+  plus "+N more" for multiple items) rather than relying on an explicit
+  `title` that nothing in the UI ever set. An explicit title, if one's
+  ever set some other way, still wins -- this is a fallback, not a
+  replacement. Applied consistently across the dashboard, the public
+  gallery, and the session page's own heading. Also fixed a smaller,
+  related bug while touching this: item ordering everywhere used
+  `order_index`, a column nothing ever actually sets on insert (always
+  0) -- switched to `created_at` so "first item" is reliably meaningful.
+
+  Filtering: `components/shared/list-filters.tsx` replaces the
+  dashboard-only `session-filters.tsx` -- search, type select, and a
+  new date-range picker (plain `<input type="date">`, no new
+  dependency), shared by both the dashboard and the public gallery,
+  which had no filtering at all before this. `public-gallery.tsx`
+  became a Client Component to own that filter state, same reasoning
+  as the dashboard's `SessionList`. Filtering happens client-side over
+  the already-fetched, capped list (30 most recent) in both places --
+  fine at this scale; would need to move server-side if either list
+  grows large enough that the cap itself becomes the limiting factor.
+
+
 ## Stack
 
 - Next.js (App Router) + TypeScript + Tailwind

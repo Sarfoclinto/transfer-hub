@@ -5,7 +5,7 @@ import Link from "next/link";
 import { QrCode as QrCodeIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SessionFilters } from "./session-filters";
+import { ListFilters } from "@/components/shared/list-filters";
 import { CopyLinkButton } from "./copy-link-button";
 import { DeleteSessionButton } from "./delete-session-button";
 import { QrCode } from "@/components/qr-code";
@@ -14,7 +14,7 @@ export type SessionKind = "text" | "file" | "mixed" | "empty";
 
 export type SessionSummary = {
   id: string;
-  title: string | null;
+  displayTitle: string;
   visibility: string;
   created_at: string;
   expires_at: string | null;
@@ -43,9 +43,7 @@ function SessionCard({ session }: { session: SessionSummary }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="truncate">
-          {session.title ?? "Untitled session"}
-        </CardTitle>
+        <CardTitle className="truncate">{session.displayTitle}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">
@@ -96,26 +94,33 @@ function SessionCard({ session }: { session: SessionSummary }) {
 export function SessionList({ sessions }: { sessions: SessionSummary[] }) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const filtered = useMemo(() => {
     return sessions.filter((s) => {
       const matchesType = typeFilter === "all" || s.kind === typeFilter;
       const matchesQuery =
         query.trim() === "" ||
-        (s.title ?? "untitled session")
-          .toLowerCase()
-          .includes(query.trim().toLowerCase());
-      return matchesType && matchesQuery;
+        s.displayTitle.toLowerCase().includes(query.trim().toLowerCase());
+      const createdDate = s.created_at.slice(0, 10); // YYYY-MM-DD, matches <input type="date">
+      const matchesFrom = dateFrom === "" || createdDate >= dateFrom;
+      const matchesTo = dateTo === "" || createdDate <= dateTo;
+      return matchesType && matchesQuery && matchesFrom && matchesTo;
     });
-  }, [sessions, query, typeFilter]);
+  }, [sessions, query, typeFilter, dateFrom, dateTo]);
 
   return (
     <div className="flex flex-col gap-3">
-      <SessionFilters
+      <ListFilters
         query={query}
         onQueryChange={setQuery}
         typeFilter={typeFilter}
         onTypeFilterChange={setTypeFilter}
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
       />
 
       {filtered.length === 0 ? (
