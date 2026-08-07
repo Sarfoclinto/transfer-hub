@@ -6,6 +6,10 @@ import {
   type SessionSummary,
   type SessionKind,
 } from "@/components/dashboard/session-list";
+import {
+  getSessionDisplayTitle,
+  type ItemForDisplayTitle,
+} from "@/lib/display-title";
 
 export default async function DashboardPage() {
   // Layout above already redirects if there's no user, so this is safe --
@@ -39,12 +43,19 @@ export default async function DashboardPage() {
     sessionIds.length > 0
       ? await supabase
           .from("items")
-          .select("session_id, kind")
+          .select("session_id, kind, title, original_filename")
           .in("session_id", sessionIds)
+          .order("created_at", { ascending: true })
       : { data: [] };
 
-  const itemsBySession = new Map<string, { kind: string }[]>();
-  for (const item of items ?? []) {
+  type DashboardItem = {
+    session_id: string;
+    kind: string;
+    title: string | null;
+    original_filename: string | null;
+  };
+  const itemsBySession = new Map<string, DashboardItem[]>();
+  for (const item of (items ?? []) as DashboardItem[]) {
     const list = itemsBySession.get(item.session_id) ?? [];
     list.push(item);
     itemsBySession.set(item.session_id, list);
@@ -64,7 +75,10 @@ export default async function DashboardPage() {
     const sessionItems = itemsBySession.get(s.id) ?? [];
     return {
       id: s.id,
-      title: s.title,
+      displayTitle: getSessionDisplayTitle(
+        s.title,
+        sessionItems as ItemForDisplayTitle[],
+      ),
       visibility: s.visibility,
       created_at: s.created_at,
       expires_at: s.expires_at,

@@ -14,6 +14,7 @@ import { AutoDownload } from "@/components/preview/auto-download";
 import { verifyUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { formatBytes } from "@/lib/storage/quota";
 import { isPreviewableMime } from "@/lib/storage/r2-client";
+import { getSessionDisplayTitle } from "@/lib/display-title";
 
 export default async function SessionPage({
   params,
@@ -82,7 +83,12 @@ export default async function SessionPage({
       "id, kind, title, original_filename, mime_type, size_bytes, text_content, text_language, one_time",
     )
     .eq("session_id", sessionId)
-    .order("order_index", { ascending: true });
+    // order_index exists in the schema but nothing ever sets it on insert
+    // (every item defaults to 0) -- created_at is the reliable signal for
+    // "first" until that changes.
+    .order("created_at", { ascending: true });
+
+  const displayTitle = getSessionDisplayTitle(session.title, items ?? []);
 
   // Auto-download only for the unambiguous single-file case: a mixed or
   // multi-item session has a real choice to make (auto-picking one would
@@ -100,7 +106,7 @@ export default async function SessionPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">
-          {session.title ?? "Shared transfer"}
+          {displayTitle}
         </h1>
         <OwnerOnly sessionId={sessionId} isOwnerAuthed={isOwnerAuthed}>
           <DeleteSessionButton sessionId={sessionId} redirectTo="/" />

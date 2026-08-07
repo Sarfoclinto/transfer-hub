@@ -6,6 +6,10 @@ import {
   PublicGallery,
   type PublicSessionSummary,
 } from "@/components/public/public-gallery";
+import {
+  getSessionDisplayTitle,
+  type ItemForDisplayTitle,
+} from "@/lib/display-title";
 
 const GALLERY_LIMIT = 30;
 
@@ -34,12 +38,19 @@ export default async function HomePage() {
     sessionIds.length > 0
       ? await supabase
           .from("items")
-          .select("session_id, kind")
+          .select("session_id, kind, title, original_filename")
           .in("session_id", sessionIds)
+          .order("created_at", { ascending: true })
       : { data: [] };
 
-  const itemsBySession = new Map<string, { kind: string }[]>();
-  for (const item of items ?? []) {
+  type GalleryItem = {
+    session_id: string;
+    kind: string;
+    title: string | null;
+    original_filename: string | null;
+  };
+  const itemsBySession = new Map<string, GalleryItem[]>();
+  for (const item of (items ?? []) as GalleryItem[]) {
     const list = itemsBySession.get(item.session_id) ?? [];
     list.push(item);
     itemsBySession.set(item.session_id, list);
@@ -58,7 +69,10 @@ export default async function HomePage() {
     const sessionItems = itemsBySession.get(s.id) ?? [];
     return {
       id: s.id,
-      title: s.title,
+      displayTitle: getSessionDisplayTitle(
+        s.title,
+        sessionItems as ItemForDisplayTitle[],
+      ),
       created_at: s.created_at,
       kind: summarizeKind(sessionItems),
       itemCount: sessionItems.length,
@@ -75,10 +89,12 @@ export default async function HomePage() {
           Upload from one device, open the link on any other. No account,
           messaging apps, or USB drives required.
         </p>
-        <Button render={<Link href="/upload" />} size="lg">
-          <Upload className="size-4" />
-          Start a transfer
-        </Button>
+        <Link href="/upload">
+          <Button size="lg">
+            <Upload className="size-4" />
+            Start a transfer
+          </Button>
+        </Link>
       </div>
 
       <div className="flex w-full max-w-2xl flex-col gap-4 border-t border-border pt-8">
