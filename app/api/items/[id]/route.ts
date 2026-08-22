@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getVerifiedUser } from "@/lib/supabase/server";
 import { verifySessionOwnership } from "@/lib/auth/owner-token";
-import { updateTextItemSchema } from "@/lib/validation/schemas";
+import { updateItemSchema } from "@/lib/validation/schemas";
 import { logger } from "@/lib/logger";
 
 // TODO (Milestone 4): GET item metadata (RLS-gated) -- not needed yet since
@@ -15,14 +15,16 @@ export async function GET() {
   );
 }
 
-// Per Phase 4 MVP scope: only text content is editable, never files.
+// title (rename) works for any item kind -- it's a display-label override,
+// not a content change. text_content stays text-only, enforced below
+// since zod's schema alone can't know the item's kind at validation time.
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id: itemId } = await params;
   const rawBody = await request.json().catch(() => ({}));
-  const parsed = updateTextItemSchema.safeParse(rawBody);
+  const parsed = updateItemSchema.safeParse(rawBody);
 
   if (!parsed.success) {
     return NextResponse.json(
@@ -45,9 +47,9 @@ export async function PATCH(
   if (itemError || !item || item.deleted_at) {
     return NextResponse.json({ error: "Item not found." }, { status: 404 });
   }
-  if (item.kind !== "text") {
+  if (parsed.data.text_content !== undefined && item.kind !== "text") {
     return NextResponse.json(
-      { error: "Only text items can be edited." },
+      { error: "Only text items have editable content." },
       { status: 400 },
     );
   }
@@ -75,15 +77,24 @@ export async function PATCH(
   // satisfy regardless of who's asking. We've already verified ownership
   // ourselves above via verifySessionOwnership -- this write is the
   // legitimate, narrow case service-role exists for (Phase 3).
+  const updatePayload: { title?: string | null; text_content?: string } = {};
+  if (parsed.data.title !== undefined) {
+    // Empty/whitespace-only clears the rename, reverting display to
+    // original_filename (files) or "Text note" (text) -- see
+    // lib/display-title.ts for the precedence.
+    updatePayload.title = parsed.data.title.trim() || null;
+  }
+  if (parsed.data.text_content !== undefined) {
+    updatePayload.text_content = parsed.data.text_content;
+  }
+
   const { error: updateError } = await serviceClient
     .from("items")
-    .update({ text_content: parsed.data.text_content })
+    .update(updatePayload)
     .eq("id", itemId);
 
   if (updateError) {
-    logger.error("items/[id]: text edit update failed", {
-      error: updateError.message,
-    });
+    logger.error("items/[id]: update failed", { error: updateError.message });
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 

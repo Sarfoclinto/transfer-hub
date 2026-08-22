@@ -262,6 +262,7 @@ dashboard with quota, search, filtering, and delete.
 protection, and image/PDF preview all work end to end.
 
 **Milestone 6 — ops & safety baseline**
+
 - ✅ Slice 1 (this branch): Upstash-backed rate limiting for guest
   session creation (10/hour/IP) and guest item creation (30/hour/IP,
   more generous since one mixed-session upload naturally creates
@@ -284,7 +285,7 @@ protection, and image/PDF preview all work end to end.
   **Phase 1** soft-deletes sessions past `expires_at` (releasing quota
   immediately, same as manual delete). **Phase 2** hard-deletes anything
   soft-deleted for 7+ days -- covering both expired sessions from phase
-  1 *and* manually-deleted ones, since both converge to the same
+  1 _and_ manually-deleted ones, since both converge to the same
   soft-deleted state and get treated identically here regardless of
   which path got them there. R2 object deletion happens only in phase
   2, not immediately at soft-delete time -- this means a wrongly-
@@ -320,6 +321,7 @@ these three things start to matter.
 **Milestone 7 — public sharing & instant download** (post-launch
 enhancement round, driven by a real use case: sharing a large video file
 via a group chat link that should start downloading the moment it's tapped)
+
 - ✅ Slice 1 (this branch): visibility selector in the upload UI (was
   previously set only by an unexposed contextual default), moved
   uploading to its own `/upload` page, homepage now lives in the
@@ -331,16 +333,16 @@ via a group chat link that should start downloading the moment it's tapped)
   preserves the existing smart default (private for an authenticated
   owner, unlisted for a guest) unless the person actively overrides it.
   - ✅ **fix** (this branch, `fix/upload-failure-handling`, stacked on
-  slice 1): real upload-failure handling, triggered by an actual failed
-  250MB upload during testing. Root cause: XHR's `onerror` fired mid-
-  transfer (a genuine network-level failure, not a bad HTTP response --
-  most likely the tab being backgrounded during a long upload, since
-  browsers throttle/suspend background-tab network activity), which
-  left the item stuck at `status: 'pending'` forever -- invisible on a
-  guest session's own page (RLS only waives the `status = 'ready'`
-  filter for an *authenticated* owner match, and guest ownership isn't
-  something RLS can recognize at all) and a hard `404` from the
-  download endpoint if reached directly.
+    slice 1): real upload-failure handling, triggered by an actual failed
+    250MB upload during testing. Root cause: XHR's `onerror` fired mid-
+    transfer (a genuine network-level failure, not a bad HTTP response --
+    most likely the tab being backgrounded during a long upload, since
+    browsers throttle/suspend background-tab network activity), which
+    left the item stuck at `status: 'pending'` forever -- invisible on a
+    guest session's own page (RLS only waives the `status = 'ready'`
+    filter for an _authenticated_ owner match, and guest ownership isn't
+    something RLS can recognize at all) and a hard `404` from the
+    download endpoint if reached directly.
   - `dropzone.tsx`: automatic retry (2 attempts, short backoff) for
     transient failures, re-running the entire flow from `request-upload`
     onward rather than resuming the same PUT -- a fresh presigned URL
@@ -364,7 +366,7 @@ via a group chat link that should start downloading the moment it's tapped)
   owner-only actions like Delete for a visitor browsing what's public,
   so no client state needed beyond the existing Copy Link island).
   Fetched via the plain anon-key client: RLS's `"public or unlisted...
-  viewable"` policy (Phase 3) already covers exactly this case --
+viewable"` policy (Phase 3) already covers exactly this case --
   `visibility = 'public'`, not deleted, not expired, for anyone logged
   in or not -- no new policies or special-casing needed. Same
   Map-grouping-then-plain-array pattern as the dashboard for computing
@@ -390,6 +392,7 @@ via a group chat link that should start downloading the moment it's tapped)
 production usage: a screenshot of the public gallery showing every
 single entry as "Untitled session," making it impossible to tell them
 apart or find anything)
+
 - ✅ Slice 1 (this branch): auto-generated display titles + expanded
   filtering. `lib/display-title.ts` derives a label from a session's
   own content (first item's filename, or its title for a text item,
@@ -399,8 +402,7 @@ apart or find anything)
   replacement. Applied consistently across the dashboard, the public
   gallery, and the session page's own heading. Also fixed a smaller,
   related bug while touching this: item ordering everywhere used
-  `order_index`, a column nothing ever actually sets on insert (always
-  0) -- switched to `created_at` so "first item" is reliably meaningful.
+  `order_index`, a column nothing ever actually sets on insert (always 0) -- switched to `created_at` so "first item" is reliably meaningful.
 
   Filtering: `components/shared/list-filters.tsx` replaces the
   dashboard-only `session-filters.tsx` -- search, type select, and a
@@ -413,6 +415,32 @@ apart or find anything)
   fine at this scale; would need to move server-side if either list
   grows large enough that the cap itself becomes the limiting factor.
 
+- ✅ Slice 2 (this branch): renaming, for sessions and items both.
+  `PATCH /api/sessions/[id]` was a 501 stub since M4 -- implemented,
+  scoped deliberately to just the title (visibility/password/expiry
+  changes are real features but separate ones, each with their own
+  considerations, not worth conflating into one endpoint).
+  `PATCH /api/items/[id]` generalized from text-content-only editing to
+  also accept a `title` rename for ANY item kind (a rename is a
+  display-label override, never touches the actual file bytes or R2
+  object, so there's no reason to restrict it to text). `text_content`
+  editing stays text-only, enforced in the route since zod can't know
+  an item's kind from the request body alone.
+  `components/preview/rename-control.tsx` is one shared component for
+  both cases, since both endpoints accept the identical `{title}` shape
+  and need the same owner-token-header pattern. Wired in three places:
+  session title (dashboard card + session page header, owner-only via
+  `OwnerOnly` on the session page since ownership isn't guaranteed
+  there the way it is on the dashboard) and per-item title (session
+  page only). An empty/whitespace title clears the override, reverting
+  to the auto-generated label from slice 1 rather than showing nothing.
+
+  **Fixed along the way**: `lib/display-title.ts` and the session
+  page's item cards both had the precedence backwards -- showing a
+  file's `original_filename` even when an explicit `title` (i.e. a
+  rename) was set, meaning a rename would have silently had no visible
+  effect for file items specifically. Flipped to `title ?? original_filename`
+  everywhere.
 
 ## Stack
 

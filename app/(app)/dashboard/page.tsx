@@ -75,6 +75,7 @@ export default async function DashboardPage() {
     const sessionItems = itemsBySession.get(s.id) ?? [];
     return {
       id: s.id,
+      title: s.title,
       displayTitle: getSessionDisplayTitle(
         s.title,
         sessionItems as ItemForDisplayTitle[],

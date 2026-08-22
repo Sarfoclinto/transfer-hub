@@ -15,6 +15,7 @@ import { verifyUnlockToken, unlockCookieName } from "@/lib/auth/session-unlock";
 import { formatBytes } from "@/lib/storage/quota";
 import { isPreviewableMime } from "@/lib/storage/r2-client";
 import { getSessionDisplayTitle } from "@/lib/display-title";
+import { RenameControl } from "@/components/preview/rename-control";
 
 export default async function SessionPage({
   params,
@@ -105,9 +106,19 @@ export default async function SessionPage({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {displayTitle}
-        </h1>
+        <div className="flex items-center gap-1.5">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {displayTitle}
+          </h1>
+          <OwnerOnly sessionId={sessionId} isOwnerAuthed={isOwnerAuthed}>
+            <RenameControl
+              sessionId={sessionId}
+              patchUrl={`/api/sessions/${sessionId}`}
+              currentTitle={session.title}
+              placeholder="Session name"
+            />
+          </OwnerOnly>
+        </div>
         <OwnerOnly sessionId={sessionId} isOwnerAuthed={isOwnerAuthed}>
           <DeleteSessionButton sessionId={sessionId} redirectTo="/" />
         </OwnerOnly>
@@ -127,10 +138,18 @@ export default async function SessionPage({
       ) : (
         items.map((item) => (
           <Card key={item.id}>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
               <CardTitle className="truncate">
-                {item.original_filename ?? item.title ?? "Untitled"}
+                {item.title ?? item.original_filename ?? "Untitled"}
               </CardTitle>
+              <OwnerOnly sessionId={sessionId} isOwnerAuthed={isOwnerAuthed}>
+                <RenameControl
+                  sessionId={sessionId}
+                  patchUrl={`/api/items/${item.id}`}
+                  currentTitle={item.title}
+                  placeholder={item.original_filename ?? "Item name"}
+                />
+              </OwnerOnly>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {item.kind === "text" && item.text_content != null && (
@@ -164,7 +183,7 @@ export default async function SessionPage({
                 (item.mime_type.startsWith("image/") ? (
                   <ImagePreview
                     itemId={item.id}
-                    alt={item.original_filename ?? item.title ?? "Preview"}
+                    alt={item.title ?? item.original_filename ?? "Preview"}
                   />
                 ) : item.mime_type === "application/pdf" ? (
                   <PdfPreview itemId={item.id} />
