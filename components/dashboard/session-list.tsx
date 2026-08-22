@@ -9,11 +9,13 @@ import { ListFilters } from "@/components/shared/list-filters";
 import { CopyLinkButton } from "./copy-link-button";
 import { DeleteSessionButton } from "./delete-session-button";
 import { QrCode } from "@/components/qr-code";
+import { RenameControl } from "@/components/preview/rename-control";
 
 export type SessionKind = "text" | "file" | "mixed" | "empty";
 
 export type SessionSummary = {
   id: string;
+  title: string | null;
   displayTitle: string;
   visibility: string;
   created_at: string;
@@ -42,8 +44,14 @@ function SessionCard({ session }: { session: SessionSummary }) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle className="truncate">{session.displayTitle}</CardTitle>
+        <RenameControl
+          sessionId={session.id}
+          patchUrl={`/api/sessions/${session.id}`}
+          currentTitle={session.title}
+          placeholder="Session name"
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">

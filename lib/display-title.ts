@@ -25,9 +25,8 @@ export function getSessionDisplayTitle(
 
   const first = items[0];
   const firstLabel =
-    first.kind === "file"
-      ? (first.original_filename ?? first.title ?? "File")
-      : (first.title ?? "Text note");
+    first.title ??
+    (first.kind === "file" ? (first.original_filename ?? "File") : "Text note");
 
   if (items.length === 1) return firstLabel;
   return `${firstLabel} +${items.length - 1} more`;
