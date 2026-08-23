@@ -486,6 +486,30 @@ See `.env.local.example` for what accounts to create and when. Broadly:
 - `lib/auth` — guest owner-token generation/verification
 - `supabase/migrations` — SQL migrations, one per schema change
 
+**Milestone 9 — sharing with specific people** (design agreed before any
+code: recipients must already have an account, no pending-invite-by-email
+yet; "Shared with me" on the dashboard is where a recipient discovers it)
+- ✅ Slice 1 (this branch): schema + RLS.
+  `0007_session_sharing.sql` -- new `session_shares` table
+  (`session_id`, `shared_with_user_id`, `granted_by`), `profiles.email`
+  (needed to look someone up; nullable, unique when present, kept in
+  sync via the signup trigger and backfilled for existing accounts).
+  New policies are ADDITIVE -- separate, small policies rather than
+  editing the existing "owner can select own sessions" / items-
+  visibility policies that have been carrying real traffic since
+  Milestone 1. Permissive RLS policies OR together automatically, so a
+  new policy achieves the same effect without touching something
+  already verified working. Deliberately no client-facing email
+  lookup/autocomplete anywhere -- the enumeration-safety design (an
+  attacker shouldn't be able to tell whether an email has an account
+  just by trying to share with it) depends on this lookup only ever
+  happening server-side, inside the share-creation endpoint itself,
+  which lands in slice 2.
+- ⬜ Slice 2: share/revoke API (enumeration-safe, rate-limited)
+- ⬜ Slice 3: share management UI on the session page (owner-only,
+  authenticated-only -- guest-owned sessions never show this at all)
+- ⬜ Slice 4: "Shared with me" section on the dashboard
+
 ## Design doc summary
 
 - **Schema**: `sessions` → `items` (one row per session, many items — the
