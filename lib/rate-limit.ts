@@ -60,6 +60,21 @@ const passwordAttemptRatelimit = redis
     })
   : null;
 
+// Share attempts -- this is specifically an enumeration control (Milestone
+// 9): the share endpoint responds identically whether or not an email
+// matched a real account, but an authenticated caller could still try to
+// learn something by hammering it with many different emails. Keyed by
+// user id, not IP -- the actor here is a known, authenticated account
+// (unlike the guest limiters above), so limiting by identity directly is
+// both more accurate and can't be sidestepped by switching networks.
+const shareAttemptRatelimit = redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(20, "1 h"),
+      prefix: "ratelimit:share-attempt",
+    })
+  : null;
+
 export function getClientIp(request: Request): string {
   // Vercel (and most reverse proxies) set x-forwarded-for; proxy.ts doesn't
   // rewrite or strip it. Falls back to a constant so a missing header
@@ -103,4 +118,8 @@ export function checkPasswordAttemptRateLimit(
     passwordAttemptRatelimit,
     `${getClientIp(request)}:${sessionId}`,
   );
+}
+
+export function checkShareAttemptRateLimit(userId: string) {
+  return check(shareAttemptRatelimit, userId);
 }

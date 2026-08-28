@@ -34,6 +34,39 @@ in `types/database.ts`):
 npx supabase gen types typescript --linked > types/database.ts
 ```
 
+## Troubleshooting: "infinite recursion detected in policy for relation X"
+
+This is Postgres error 42P17, and it means two RLS policies reference
+each other in a cycle: table A's policy queries table B, and one of
+table B's own policies queries table A right back. Evaluating A
+triggers B, which triggers A again, indefinitely -- and it breaks
+*every* read of the affected table, not just the specific case that
+created the cycle, since Postgres has to evaluate every permissive
+policy to OR them together for any query.
+
+This happened for real in this project (see
+`0008_fix_sharing_rls_recursion.sql`) -- a new policy on `sessions`
+queried `session_shares`, whose own policy queried `sessions` back. It
+broke the dashboard and public gallery for everyone, with zero errors
+visible anywhere, because none of the app's read-path Server Components
+checked the `error` field from their Supabase queries at the time (only
+`data`) -- a real gap, fixed alongside the RLS issue itself.
+
+To confirm this diagnosis for a suspected case, run as the role that's
+actually failing:
+
+```sql
+set role anon;   -- or authenticated
+select * from <table> limit 1;
+reset role;
+```
+
+The fix is a `SECURITY DEFINER` helper function for whichever side of
+the cycle needs to peek into the other table -- such a function runs
+with its owner's privileges (which bypass RLS in Supabase), so its
+internal queries never re-trigger the policies that caused the cycle.
+See `0008`'s `is_session_shared_with_me()` for a working example.
+
 ## Troubleshooting: "violates foreign key constraint sessions_owner_id_fkey"
 
 This means the signed-in user has an `auth.users` row but no matching
