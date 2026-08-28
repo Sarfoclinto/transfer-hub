@@ -16,6 +16,7 @@ import { formatBytes } from "@/lib/storage/quota";
 import { isPreviewableMime } from "@/lib/storage/r2-client";
 import { getSessionDisplayTitle } from "@/lib/display-title";
 import { RenameControl } from "@/components/preview/rename-control";
+import { logger } from "@/lib/logger";
 
 export default async function SessionPage({
   params,
@@ -35,11 +36,26 @@ export default async function SessionPage({
   // need a client-side fetch using the localStorage token, which is a
   // known gap deferred past this milestone's scope (single-file guest
   // upload/download for the common, unlisted case).
-  const { data: session } = await supabase
+  const { data: session, error: sessionError } = await supabase
     .from("sessions")
     .select("id, title, visibility, owner_id, password_hash")
     .eq("id", sessionId)
     .maybeSingle();
+
+  // Logged for our own visibility, but deliberately does NOT change the
+  // response shown below -- Phase 3's design already keeps "doesn't
+  // exist," "exists but not visible to you," and "expired" all
+  // indistinguishable to the viewer for security reasons; a genuine query
+  // failure shouldn't become a fourth, distinguishable case either. This
+  // check exists at all because a real production incident (a recursive
+  // RLS policy) was previously invisible in every log -- see the matching
+  // comment in dashboard/page.tsx.
+  if (sessionError) {
+    logger.error("session page: session query failed", {
+      sessionId,
+      error: sessionError.message,
+    });
+  }
 
   if (!session) {
     return (
@@ -78,7 +94,7 @@ export default async function SessionPage({
     }
   }
 
-  const { data: items } = await supabase
+  const { data: items, error: itemsError } = await supabase
     .from("items")
     .select(
       "id, kind, title, original_filename, mime_type, size_bytes, text_content, text_language, one_time",
@@ -88,6 +104,13 @@ export default async function SessionPage({
     // (every item defaults to 0) -- created_at is the reliable signal for
     // "first" until that changes.
     .order("created_at", { ascending: true });
+
+  if (itemsError) {
+    logger.error("session page: items query failed", {
+      sessionId,
+      error: itemsError.message,
+    });
+  }
 
   const displayTitle = getSessionDisplayTitle(session.title, items ?? []);
 

@@ -10,6 +10,7 @@ import {
   getSessionDisplayTitle,
   type ItemForDisplayTitle,
 } from "@/lib/display-title";
+import { logger } from "@/lib/logger";
 
 export default async function DashboardPage() {
   // Layout above already redirects if there's no user, so this is safe --
@@ -18,7 +19,10 @@ export default async function DashboardPage() {
   const user = await getVerifiedUser();
   const supabase = await createClient();
 
-  const [{ data: profile }, { data: sessions }] = await Promise.all([
+  const [
+    { data: profile, error: profileError },
+    { data: sessions, error: sessionsError },
+  ] = await Promise.all([
     supabase
       .from("profiles")
       .select("storage_used_bytes")
@@ -31,6 +35,23 @@ export default async function DashboardPage() {
       .is("deleted_at", null)
       .order("created_at", { ascending: false }),
   ]);
+
+  // Log-and-continue rather than throwing -- a real query failure here
+  // (found the hard way: a recursive RLS policy silently broke every
+  // session read for every user, and it was invisible in every log
+  // because this exact check didn't exist yet) should be loud in Vercel's
+  // logs, not indistinguishable from "this person genuinely has zero
+  // sessions." The page still renders something reasonable either way.
+  if (profileError) {
+    logger.error("dashboard: profile query failed", {
+      error: profileError.message,
+    });
+  }
+  if (sessionsError) {
+    logger.error("dashboard: sessions query failed", {
+      error: sessionsError.message,
+    });
+  }
 
   const sessionIds = (sessions ?? []).map((s) => s.id);
 
@@ -100,7 +121,17 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {!sessions || sessions.length === 0 ? (
+      {sessionsError ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Couldn&apos;t load your sessions</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Something went wrong on our end. Please try refreshing -- if it
+            keeps happening, let us know.
+          </CardContent>
+        </Card>
+      ) : !sessions || sessions.length === 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>No sessions yet</CardTitle>

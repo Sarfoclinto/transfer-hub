@@ -10,6 +10,7 @@ import {
   getSessionDisplayTitle,
   type ItemForDisplayTitle,
 } from "@/lib/display-title";
+import { logger } from "@/lib/logger";
 
 const GALLERY_LIMIT = 30;
 
@@ -21,13 +22,23 @@ export default async function HomePage() {
   // (Phase 3) already covers exactly this case -- visibility = 'public',
   // not deleted, not expired -- for anyone, logged in or not. No special
   // casing needed here.
-  const { data: sessions } = await supabase
+  const { data: sessions, error: sessionsError } = await supabase
     .from("sessions")
     .select("id, title, created_at")
     .eq("visibility", "public")
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .limit(GALLERY_LIMIT);
+
+  // Log-and-continue, not throw -- see the matching comment in
+  // dashboard/page.tsx for why this check exists at all: a real query
+  // failure here was previously indistinguishable from "no public
+  // uploads yet," and stayed invisible in every log as a result.
+  if (sessionsError) {
+    logger.error("homepage: public sessions query failed", {
+      error: sessionsError.message,
+    });
+  }
 
   const sessionIds = (sessions ?? []).map((s) => s.id);
 
@@ -89,19 +100,24 @@ export default async function HomePage() {
           Upload from one device, open the link on any other. No account,
           messaging apps, or USB drives required.
         </p>
-        <Link href="/upload">
-          <Button size="lg">
-            <Upload className="size-4" />
-            Start a transfer
-          </Button>
-        </Link>
+        <Button render={<Link href="/upload" />} size="lg">
+          <Upload className="size-4" />
+          Start a transfer
+        </Button>
       </div>
 
       <div className="flex w-full max-w-2xl flex-col gap-4 border-t border-border pt-8">
         <h2 className="text-center text-lg font-semibold tracking-tight">
           Public uploads
         </h2>
-        <PublicGallery sessions={gallerySessions} />
+        {sessionsError ? (
+          <p className="text-center text-sm text-muted-foreground">
+            Couldn&apos;t load public uploads right now -- please try
+            refreshing.
+          </p>
+        ) : (
+          <PublicGallery sessions={gallerySessions} />
+        )}
       </div>
     </div>
   );
