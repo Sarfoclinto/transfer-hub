@@ -80,3 +80,14 @@ export const updateSessionSchema = z.object({
 });
 
 export type UpdateSessionInput = z.infer<typeof updateSessionSchema>;
+
+// Deliberately just an email string, nothing else -- no client-facing
+// search or autocomplete against this, per the enumeration-safety design
+// from M9S1's migration. .email() catches obviously-malformed input
+// before it ever reaches a database lookup; it's not a security boundary
+// by itself.
+export const shareSessionSchema = z.object({
+  email: z.string().trim().email().max(255),
+});
+
+export type ShareSessionInput = z.infer<typeof shareSessionSchema>;
